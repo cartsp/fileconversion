@@ -4,9 +4,24 @@ pipeline {
    stages {
         stage('Checkout') {
              steps {
-                git credentialsId: 'e8c84390-ef5b-4c17-bc9c-76c39f60f039', url: 'https://github.com/cartsp/fileconversion.git'
+                git credentialsId: 'git', url: 'https://github.com/cartsp/fileconversion.git'
              }
              
+        }
+        stage('Nuget restore') {
+            steps {
+                sh label: '', script: 'dotnet restore'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh label: '', script: 'dotnet build'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh label: '', script: 'dotnet test'
+            }
         }
     }
 }
