@@ -1,0 +1,23 @@
+# This is a sample build configuration for .NET Core.
+# Check our guides at https://confluence.atlassian.com/x/5Q4SMw for more examples.
+# Only use spaces to indent your .yml configuration.
+# -----
+# You can specify a custom docker image from Docker Hub as your build environment.
+image: mcr.microsoft.com/dotnet/core/sdk:3.1
+#image: elgalu/selenium:latest
+
+
+pipelines:
+  default:
+    - step:
+        caches:
+          - dotnetcore
+        script: # Modify the comma`nds below to build your repository.
+          - export PROJECT_NAME=FileConvert
+          - export TEST_NAME=FileConvert.UnitTests
+          - export UI_TEST_NAME=FileConvert.UiTests
+          - dotnet restore
+          - dotnet build $PROJECT_NAME
+          - dotnet test $TEST_NAME
+          # - dotnet test $UI_TEST_NAME
+          #chrome driver failing on bitbucket in docker core sdk3.1 image

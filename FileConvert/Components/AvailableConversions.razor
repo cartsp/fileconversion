@@ -1,0 +1,58 @@
+﻿@inject IFileConvertors FileConversionService 
+<div class="card">
+    <div class="card-header dx-red-color">
+        <span>
+            See Available File Conversions
+        </span>
+    </div>
+    <div class="mb-12 col-md-12">
+        <div class="card-body row justify-content-center">
+            <div class="row w-100">
+                <div class="input-group mb-6 col-md-6">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text w-100" for="inputGroupSelect01">From</label>
+                    </div>
+                    <select class="custom-select" id="inputGroupSelect01" @onchange="OnFilterChange">
+                        @if (availableExtensions != null)
+                        {
+                            <option disabled selected value>Select Extension</option>
+                            @foreach (var cnt in availableExtensions.Select(a => a.ExtensionToConvert).Distinct())
+                            {
+                                <option value="@cnt">@cnt</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="input-group mb-6 col-md-6">
+                    <div class="input-group-prepend">
+                        <label class="input-group-text w-100" for="inputGroupSelect01">Convert to</label>
+                    </div>
+                    <select class="custom-select">
+                        <option disabled selected value>Select Extension</option>
+                        @if (availableConvertors != null)
+                        {
+                            @foreach (var cnt in availableConvertors.Select(a => a.ConvertedExtension).Distinct())
+                            {
+                                <option value="@cnt">@cnt</option>
+                            }
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@code {
+    static IImmutableList<ConvertorDetails> availableExtensions;
+    static IImmutableList<ConvertorDetails> availableConvertors;
+
+    protected override void OnInitialized()
+    {
+        availableExtensions = FileConversionService.GetCompatibleExtensions();
+    }
+
+    protected void OnFilterChange(ChangeEventArgs e)
+    {
+        availableConvertors = FileConversionService.GetAvailableConversions(e.Value.ToString());
+    }
+}

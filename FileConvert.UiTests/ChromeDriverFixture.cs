@@ -1,0 +1,28 @@
+﻿using OpenQA.Selenium.Chrome;
+using System;
+using System.Diagnostics;
+
+namespace FileConvert.UiTests
+{
+    public class ChromeDriverFixture : IDisposable
+    {
+        public ChromeOptions chromeOptions { get; private set; }
+        public ChromeDriver driver { get; private set; }
+
+        public ChromeDriverFixture()
+        {
+            chromeOptions = new ChromeOptions();
+            if (!Debugger.IsAttached)
+            {
+                chromeOptions.AddArguments("headless");
+            }
+            driver = new ChromeDriver(chromeOptions);
+        }
+
+        public void Dispose()
+        {
+            driver.Close();
+            driver.Dispose();
+        }
+    }
+}
