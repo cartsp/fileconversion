@@ -40,7 +40,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 4);
+            Assert.Equal(5, result.Count);
         }
 
         [Fact]
