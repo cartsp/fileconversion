@@ -15,6 +15,8 @@ namespace FileConvert.UiTests
             if (!Debugger.IsAttached)
             {
                 chromeOptions.AddArguments("headless");
+                chromeOptions.AddArguments("no-sandbox");
+                chromeOptions.AddArguments("disable-dev-shm-usage");
             }
             driver = new ChromeDriver(chromeOptions);
         }
