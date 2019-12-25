@@ -23,5 +23,10 @@ pipeline {
                 sh label: '', script: 'dotnet test'
             }
         }
+        stage('Publish') {
+            steps {
+               sh label: '', script: 'dotnet publish'
+            }
+        }
     }
 }
