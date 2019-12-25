@@ -33,7 +33,7 @@
                                         <option disabled selected value>Select Extension</option>
                                         @foreach (var cnt in chosenConvertors.Select(a => a.ConvertedExtension).Distinct())
                                         {
-                                            <option value="@cnt">@cnt</option>
+                                            <option class="conversion-choices" value="@cnt">@cnt</option>
                                         }
                                     }
                                 </select>

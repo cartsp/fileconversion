@@ -1,6 +1,8 @@
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using System;
+using System.IO;
+using System.Linq;
 using Xunit;
 
 namespace FileConvert.UiTests
@@ -54,6 +56,29 @@ namespace FileConvert.UiTests
 
             //Assert
             Assert.NotNull(FileControl);
+        }
+
+        [Fact]
+        public void TestAvailableFileConversionAppears()
+        {
+            //Arrange
+            fixture.driver.Url = "https://fileconversiontools.azureedge.net/";
+
+            //Act
+            var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
+            var uploadElement = wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementExists(By.Id("file-1")));
+            
+            var filepath = Directory.GetCurrentDirectory() + $"{Path.DirectorySeparatorChar}Documents{Path.DirectorySeparatorChar}Test Document.docx";
+            uploadElement.SendKeys(filepath);
+
+            wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementExists(By.ClassName("conversion-choices")));
+            var conversionSelection = fixture.driver.FindElementsByClassName("conversion-choices");
+            var htmlOption = conversionSelection.First().Text;
+            
+            //Assert
+            Assert.NotNull(conversionSelection);
+            Assert.NotEmpty(conversionSelection);
+            Assert.Equal(".html", htmlOption);
         }
     }
 }
