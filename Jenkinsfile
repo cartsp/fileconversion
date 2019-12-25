@@ -25,7 +25,7 @@ pipeline {
         }
         stage('Publish') {
             steps {
-               sh label: '', script: 'dotnet publish'
+               sh label: '', script: 'dotnet publish "\FileConvert\FileConvert.csproj"'
             }
         }
     }

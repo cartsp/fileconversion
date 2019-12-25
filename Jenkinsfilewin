@@ -25,7 +25,7 @@ pipeline {
         }
         stage('Publish') {
             steps {
-                bat 'dotnet publish'
+                bat 'dotnet publish "\FileConvert\FileConvert.csproj"'
             }
         }
     }
