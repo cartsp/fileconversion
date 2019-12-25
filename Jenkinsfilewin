@@ -1,0 +1,27 @@
+pipeline {
+   agent any
+
+   stages {
+        stage('Checkout') {
+             steps {
+                git branch: 'DEV', credentialsId: 'git', url: 'https://github.com/cartsp/fileconversion.git'
+             }
+             
+        }
+        stage('Nuget restore') {
+            steps {
+                bat dotnet restore
+            }
+        }
+        stage('Build') {
+            steps {
+                bat dotnet build
+            }
+        }
+        stage('Test') {
+            steps {
+                bat dotnet test
+            }
+        }
+    }
+}
