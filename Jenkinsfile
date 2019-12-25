@@ -4,7 +4,7 @@ pipeline {
    stages {
         stage('Checkout') {
              steps {
-                git credentialsId: 'git', url: 'https://github.com/cartsp/fileconversion.git'
+                git branch: 'DEV', git credentialsId: 'git', url: 'https://github.com/cartsp/fileconversion.git'
              }
              
         }
