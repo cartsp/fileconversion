@@ -18,6 +18,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C36A65B9-982F-4138-BB9A-56F8AA1D0495}"
 	ProjectSection(SolutionItems) = preProject
 		bitbucket-pipelines.yml = bitbucket-pipelines.yml
+		dockerfile = dockerfile
 		Jenkinsfile = Jenkinsfile
 		Jenkinsfilewin = Jenkinsfilewin
 	EndProjectSection
