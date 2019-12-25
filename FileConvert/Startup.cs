@@ -15,6 +15,7 @@ namespace FileConvert
 
         public void Configure(IComponentsApplicationBuilder app)
         {
+            //dunno
             app.AddComponent<App>("app");
         }
     }
