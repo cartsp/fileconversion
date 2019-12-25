@@ -80,5 +80,25 @@ namespace FileConvert.UiTests
             Assert.NotEmpty(conversionSelection);
             Assert.Equal(".html", htmlOption);
         }
+
+        [Fact]
+        public void TestNoAvailableFileConversionAppears()
+        {
+            //Arrange
+            fixture.driver.Url = "https://fileconversiontools.azureedge.net/";
+
+            //Act
+            var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
+            var uploadElement = wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementExists(By.Id("file-1")));
+
+            var filepath = Directory.GetCurrentDirectory() + $"{Path.DirectorySeparatorChar}Documents{Path.DirectorySeparatorChar}test.dgn";
+            uploadElement.SendKeys(filepath);
+
+            var noConversionsFound = wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementExists(By.ClassName("no-convertors-found")));
+
+            //Assert
+            Assert.NotNull(noConversionsFound);
+            Assert.Equal("No file convertors found for this file type", noConversionsFound.Text);
+        }
     }
 }

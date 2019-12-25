@@ -12,10 +12,14 @@
 
   <ItemGroup>
     <None Remove="Documents\Test Document.docx" />
+    <None Remove="Documents\test.dgn" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Documents\Test Document.docx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Documents\test.dgn">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
