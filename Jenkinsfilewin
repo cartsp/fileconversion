@@ -15,6 +15,7 @@ pipeline {
         }
         stage('Build') {
             steps {
+                bat 'dotnet clean'
                 bat 'dotnet publish -c Release'
             }
         }        
@@ -32,11 +33,6 @@ pipeline {
             steps {
                 bat 'dotnet test'
             }
-        }
-    }
-    post { 
-        always { 
-            deleteDir()
         }
     }
 }

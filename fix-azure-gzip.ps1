@@ -10,5 +10,3 @@ foreach ($file in $files) {Compress-7Zip -path $file -ArchiveFileName "$file.gz"
 Get-ChildItem -filter *.*  -recurse -Exclude *.gz| Remove-Item
 Get-ChildItem -filter *.* -recurse | Rename-Item -NewName { $_ -replace '\.gz','' }
 
-cd '..\..\..\..\..\..\..'
-
