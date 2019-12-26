@@ -19,8 +19,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	ProjectSection(SolutionItems) = preProject
 		bitbucket-pipelines.yml = bitbucket-pipelines.yml
 		dockerfile = dockerfile
+		fix-azure-gzip.ps1 = fix-azure-gzip.ps1
 		Jenkinsfile = Jenkinsfile
 		Jenkinsfilewin = Jenkinsfilewin
+		set-azure-storage-content-types.ps1 = set-azure-storage-content-types.ps1
 	EndProjectSection
 EndProject
 Global
