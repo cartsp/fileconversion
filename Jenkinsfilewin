@@ -25,7 +25,7 @@ pipeline {
                 dir('FileConvert/bin/Release/netstandard2.1/publish/FileConvert/dist/'){
                     azureUpload blobProperties: [cacheControl: '', contentEncoding: '', contentLanguage: '', contentType: '', detectContentType: true], cleanUpContainerOrShare: true, containerName: '$web', fileShareName: '', filesPath: '**/**', storageCredentialId: 'azure-storage', storageType: 'blobstorage'
                 
-                bat label: '', script: 'pwsh .\\set-azure-storage-content-typess.ps1'
+                bat label: '', script: 'pwsh .\\set-azure-storage-content-types.ps1'
                 }
             }
         }
