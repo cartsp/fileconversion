@@ -20,7 +20,9 @@ pipeline {
         }        
         stage('Deploy') {
             steps {
-                pwsh label: '', script: '''If(-not(Get-InstalledModule 7Zip4PowerShell -ErrorAction silentlycontinue)){
+                powershell label: '', script: '''
+                
+                    If(-not(Get-InstalledModule 7Zip4PowerShell -ErrorAction silentlycontinue)){
                         Install-Module 7Zip4PowerShell -Confirm:$False -Force
                     }
 
@@ -35,7 +37,7 @@ pipeline {
                 dir('FileConvert/bin/Release/netstandard2.1/publish/FileConvert/dist/'){
                     azureUpload blobProperties: [cacheControl: '', contentEncoding: '', contentLanguage: '', contentType: '', detectContentType: true], cleanUpContainerOrShare: true, containerName: '$web', fileShareName: '', filesPath: '**/**', storageCredentialId: 'azure-storage', storageType: 'blobstorage'
                 
-                pwsh label: '', script: '''If(-not(Get-InstalledModule -Name Az -ErrorAction silentlycontinue)){
+                powershell label: '', script: '''If(-not(Get-InstalledModule -Name Az -ErrorAction silentlycontinue)){
                         Install-Module -Name Az -AllowClobber -Scope CurrentUser -Confirm:$False -Force
                     }
 
