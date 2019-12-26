@@ -15,7 +15,7 @@ pipeline {
         }
         stage('Build') {
             steps {
-                sh label: '', script: 'dotnet build'
+                sh label: '', script: 'dotnet publish -c Release'
             }
         }
         stage('Test') {

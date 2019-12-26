@@ -15,7 +15,7 @@ pipeline {
         }
         stage('Build') {
             steps {
-                bat 'dotnet build'
+                bat 'dotnet publish -c Release'
             }
         }
         stage('Test') {
