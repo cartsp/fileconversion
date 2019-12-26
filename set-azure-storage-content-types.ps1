@@ -28,6 +28,14 @@ foreach ($Blob in $Blobs)
         ".dll" { $ContentType = "application/octet-stream" }
         ".wasm" { $ContentType = "application/wasm" }
         ".html" { $ContentType = "text/html" }
+        ".css" { $ContentType = "text/css" }
+        ".map" { $ContentType = "text/plain" }
+        ".md" { $ContentType = "text/plain" }
+        ".eot" { $ContentType = "application/vnd.ms-fontobject" }
+        ".otf" { $ContentType = "font/otf" }
+        ".svg" { $ContentType = "image/svg+xml" }
+        ".ttf" { $ContentType = "font/ttf" }
+        ".woff" { $ContentType = "font/woff" }
 
         Default { $ContentType = "" }
     }
