@@ -37,7 +37,9 @@ pipeline {
                 dir('FileConvert/bin/Release/netstandard2.1/publish/FileConvert/dist/'){
                     azureUpload blobProperties: [cacheControl: '', contentEncoding: '', contentLanguage: '', contentType: '', detectContentType: true], cleanUpContainerOrShare: true, containerName: '$web', fileShareName: '', filesPath: '**/**', storageCredentialId: 'azure-storage', storageType: 'blobstorage'
                 
-                powershell label: '', script: '''If(-not(Get-InstalledModule -Name Az -ErrorAction silentlycontinue)){
+                powershell label: '', script: '''
+                
+                    If(-not(Get-InstalledModule -Name Az -ErrorAction silentlycontinue)){
                         Install-Module -Name Az -AllowClobber -Scope CurrentUser -Confirm:$False -Force
                     }
 
@@ -48,12 +50,12 @@ pipeline {
 
 
                     $StorageAccountName = "devfileconversion" # i.e. WolfTrackerStorage
-                    # If you\'re using VSTS I would strongly suggest using Key Vault to store and retrieve the key. Keep secrets out of your code!
+                    # If you're using VSTS I would strongly suggest using Key Vault to store and retrieve the key. Keep secrets out of your code!
                     $StorageAccountKey = "rgYcOvyRUc7uMn/xwZUsrJ/bDnp49EjzgicI/bgnf2XL9LFenHEger6VhqaRboz/9a1KtbgYu7zXSdfJgXuOeQ==" 
                     $ContainerName = "`$web"  # i.e. wolfpics
 
-                    $Context = New-AzStorageContext -StorageAccountName $StorageAccountName -StorageAccountKey $StorageAccountKey
-                    $Blobs = Get-AzStorageBlob -Context $Context -Container $ContainerName
+                    $Context = New-AzureStorageContext -StorageAccountName $StorageAccountName -StorageAccountKey $StorageAccountKey
+                    $Blobs = Get-AzureStorageBlob -Context $Context -Container $ContainerName
 
                     foreach ($Blob in $Blobs) 
                     {  
@@ -70,12 +72,13 @@ pipeline {
 
                             Default { $ContentType = "" }
                         }
-                        $CloudBlockBlob = [Microsoft.Azure.Storage.Blob.CloudBlockBlob] $Blob.ICloudBlob
+                        $CloudBlockBlob = [Microsoft.WindowsAzure.Storage.Blob.CloudBlockBlob] $Blob.ICloudBlob
                         if ($ContentType -ne "") {
                             $CloudBlockBlob.Properties.ContentType = $ContentType    
                         }
-                        $CloudBlockBlob.Properties.ContentEncoding = \'gzip\' 
+                        $CloudBlockBlob.Properties.ContentEncoding = 'gzip' 
                         $CloudBlockBlob.SetProperties()    
+}  
                     }'''
                 }
             }
