@@ -38,7 +38,6 @@ pipeline {
                     azureUpload blobProperties: [cacheControl: '', contentEncoding: '', contentLanguage: '', contentType: '', detectContentType: true], cleanUpContainerOrShare: true, containerName: '$web', fileShareName: '', filesPath: '**/**', storageCredentialId: 'azure-storage', storageType: 'blobstorage'
                 
                 powershell label: '', script: '''
-                
                     If(-not(Get-InstalledModule -Name Az -ErrorAction silentlycontinue)){
                         Install-Module -Name Az -AllowClobber -Scope CurrentUser -Confirm:$False -Force
                     }
@@ -50,7 +49,7 @@ pipeline {
 
 
                     $StorageAccountName = "devfileconversion" # i.e. WolfTrackerStorage
-                    # If you're using VSTS I would strongly suggest using Key Vault to store and retrieve the key. Keep secrets out of your code!
+                    # If you\'re using VSTS I would strongly suggest using Key Vault to store and retrieve the key. Keep secrets out of your code!
                     $StorageAccountKey = "rgYcOvyRUc7uMn/xwZUsrJ/bDnp49EjzgicI/bgnf2XL9LFenHEger6VhqaRboz/9a1KtbgYu7zXSdfJgXuOeQ==" 
                     $ContainerName = "`$web"  # i.e. wolfpics
 
@@ -76,10 +75,10 @@ pipeline {
                         if ($ContentType -ne "") {
                             $CloudBlockBlob.Properties.ContentType = $ContentType    
                         }
-                        $CloudBlockBlob.Properties.ContentEncoding = 'gzip' 
+                        $CloudBlockBlob.Properties.ContentEncoding = \'gzip\' 
                         $CloudBlockBlob.SetProperties()    
-}  
-                    }'''
+                     }
+                     '''
                 }
             }
         }
