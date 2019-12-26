@@ -5,7 +5,7 @@ If(-not(Get-InstalledModule -Name Az -ErrorAction silentlycontinue)){
 $resourceGroup = "fileconversion"
 $storageAccountName = "devfileconversion"
 
-$storageAccount = Get-AzureStorageAccount -ResourceGroupName $resourceGroup -Name $storageAccountName
+$storageAccount = Get-AzStorageAccount -ResourceGroupName $resourceGroup -Name $storageAccountName
 
 
 $StorageAccountName = "devfileconversion" # i.e. WolfTrackerStorage
@@ -13,8 +13,8 @@ $StorageAccountName = "devfileconversion" # i.e. WolfTrackerStorage
 $StorageAccountKey = "rgYcOvyRUc7uMn/xwZUsrJ/bDnp49EjzgicI/bgnf2XL9LFenHEger6VhqaRboz/9a1KtbgYu7zXSdfJgXuOeQ==" 
 $ContainerName = "`$web"  # i.e. wolfpics
 
-$Context = New-AzureStorageContext -StorageAccountName $StorageAccountName -StorageAccountKey $StorageAccountKey
-$Blobs = Get-AzureStorageBlob -Context $Context -Container $ContainerName
+$Context = New-AzStorageContext -StorageAccountName $StorageAccountName -StorageAccountKey $StorageAccountKey
+$Blobs = Get-AzStorageBlob -Context $Context -Container $ContainerName
 
 foreach ($Blob in $Blobs) 
 {  
@@ -31,7 +31,7 @@ foreach ($Blob in $Blobs)
 
         Default { $ContentType = "" }
     }
-    $CloudBlockBlob = [Microsoft.WindowsAzure.Storage.Blob.CloudBlockBlob] $Blob.ICloudBlob
+    $CloudBlockBlob = [Microsoft.Azure.Storage.Blob.CloudBlockBlob] $Blob.ICloudBlob
     if ($ContentType -ne "") {
         $CloudBlockBlob.Properties.ContentType = $ContentType    
     }
