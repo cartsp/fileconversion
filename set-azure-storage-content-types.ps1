@@ -5,7 +5,7 @@ If(-not(Get-InstalledModule -Name Az -ErrorAction silentlycontinue)){
 $resourceGroup = "fileconversion"
 $storageAccountName = "devfileconversion"
 
-$storageAccount = Get-AzStorageAccount -ResourceGroupName $resourceGroup -Name $storageAccountName
+$storageAccount = Get-AzureStorageAccount -ResourceGroupName $resourceGroup -Name $storageAccountName
 
 
 $StorageAccountName = "devfileconversion" # i.e. WolfTrackerStorage
