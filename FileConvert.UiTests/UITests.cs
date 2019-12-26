@@ -20,7 +20,7 @@ namespace FileConvert.UiTests
         public void TestCanOpenDevSite()
         {
             //Arrange
-            fixture.driver.Url = "https://fileconversiontools.azureedge.net/";
+            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
 
             //Act
             var PageTitle = fixture.driver.Title;
@@ -34,7 +34,7 @@ namespace FileConvert.UiTests
         public void TestAppStartsUp()
         {
             //Arrange
-            fixture.driver.Url = "https://fileconversiontools.azureedge.net/";
+            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
 
             //Act
             var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
@@ -48,7 +48,7 @@ namespace FileConvert.UiTests
         public void TestFileControlExists()
         {
             //Arrange
-            fixture.driver.Url = "https://fileconversiontools.azureedge.net/";
+            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
 
             //Act
             var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
@@ -62,7 +62,7 @@ namespace FileConvert.UiTests
         public void TestAvailableFileConversionAppears()
         {
             //Arrange
-            fixture.driver.Url = "https://fileconversiontools.azureedge.net/";
+            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
 
             //Act
             var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
@@ -85,7 +85,7 @@ namespace FileConvert.UiTests
         public void TestNoAvailableFileConversionAppears()
         {
             //Arrange
-            fixture.driver.Url = "https://fileconversiontools.azureedge.net/";
+            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
 
             //Act
             var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
