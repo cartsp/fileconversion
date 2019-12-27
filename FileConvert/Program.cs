@@ -9,7 +9,9 @@ namespace FileConvert
             CreateHostBuilder(args).Build().Run();
         }
 
+#pragma warning disable CA1801 // Remove unused parameter
         public static IWebAssemblyHostBuilder CreateHostBuilder(string[] args) =>
+#pragma warning restore CA1801 // Remove unused parameter
             BlazorWebAssemblyHost.CreateDefaultBuilder()
                 .UseBlazorStartup<Startup>();
     }
