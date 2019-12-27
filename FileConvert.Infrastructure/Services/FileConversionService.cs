@@ -2,15 +2,11 @@
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
-using OfficeOpenXml;
 using System.Collections.Immutable;
 using System.Linq;
 using FileConvert.Core.Entities;
-using NAudio.Wave;
-using System;
-using Microsoft.IdentityModel.Tokens;
-using System.Drawing;
-using System.Drawing.Imaging;
+//using NAudio.Wave;
+using OfficeOpenXml;
 
 namespace FileConvert.Infrastructure
 {
@@ -51,7 +47,7 @@ namespace FileConvert.Infrastructure
             //    return memoryStream;
             //}
             var msPNG = new MemoryStream();
-            System.Drawing.Bitmap.FromStream(TifFile).Save(msPNG, System.Drawing.Imaging.ImageFormat.Png);
+            //System.Drawing.Bitmap.FromStream(TifFile).Save(msPNG, System.Drawing.Imaging.ImageFormat.Png);
 
             return msPNG;
         }
@@ -69,18 +65,20 @@ namespace FileConvert.Infrastructure
             //var base64File = Encoding.ASCII.GetString(MP3Stream.ToArray());
             //var fileBytes = Encoding.UTF8.GetBytes(Base64UrlEncoder.Decode(Encoding.ASCII.GetString(MP3Stream.ToArray())));
             ///ar fileBytes = Convert.FromBase64String(base64File);
-            using (WaveStream waveStream = WaveFormatConversionStream.CreatePcmStream(new Mp3FileReader(MP3Stream)))
-            using (WaveFileWriter waveFileWriter = new WaveFileWriter(ConvertedWaveStream, waveStream.WaveFormat))
-            {
-                byte[] bytes = new byte[waveStream.Length];
-                waveStream.Position = 0;
-                await waveStream.ReadAsync(bytes, 0, (int)waveStream.Length);
-                await waveFileWriter.WriteAsync(bytes, 0, bytes.Length);
-                waveFileWriter.Flush();
-                ConvertedWaveStream.Position = 0;
+            //using (WaveStream waveStream = WaveFormatConversionStream.CreatePcmStream(new Mp3FileReader(MP3Stream)))
+            //using (WaveFileWriter waveFileWriter = new WaveFileWriter(ConvertedWaveStream, waveStream.WaveFormat))
+            //{
+            //    byte[] bytes = new byte[waveStream.Length];
+            //    waveStream.Position = 0;
+            //    await waveStream.ReadAsync(bytes, 0, (int)waveStream.Length);
+            //    await waveFileWriter.WriteAsync(bytes, 0, bytes.Length);
+            //    waveFileWriter.Flush();
+            //    ConvertedWaveStream.Position = 0;
 
-                return ConvertedWaveStream;
-            }
+                
+            //}
+            
+            return ConvertedWaveStream;
         }
 
         public async Task<MemoryStream> ConvertCSVToExcel(MemoryStream CSVStream)
