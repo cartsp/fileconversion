@@ -98,7 +98,7 @@ namespace FileConvert.UiTests
 
             //Assert
             Assert.NotNull(noConversionsFound);
-            Assert.Equal("No file convertors found for this file type", noConversionsFound.Text);
+            Assert.Equal("No file conversions available for this file type", noConversionsFound.Text);
         }
     }
 }
