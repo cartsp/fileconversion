@@ -18,7 +18,7 @@ pipeline {
                 bat 'dotnet publish -c Release'
             }
         }        
-        stage('Deploy') {
+/*        stage('Deploy') {
              steps {
                 bat label: '', script: 'pwsh .\\pre-gzip-for-azure.ps1'
 
@@ -27,7 +27,7 @@ pipeline {
                 }
                 bat label: '', script: 'pwsh .\\set-azure-storage-content-types.ps1'
             }
-        }
+        } */
         stage('Test') {
             steps {
                 bat 'dotnet test'
