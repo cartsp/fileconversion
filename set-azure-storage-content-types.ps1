@@ -1,15 +1,8 @@
 #Requires -Module Az
 
-$resourceGroup = "fileconversion"
-$storageAccountName = "devfileconversion"
-
-$storageAccount = Get-AzStorageAccount -ResourceGroupName $resourceGroup -Name $storageAccountName
-
-
-$StorageAccountName = "devfileconversion" # i.e. WolfTrackerStorage
-# If you're using VSTS I would strongly suggest using Key Vault to store and retrieve the key. Keep secrets out of your code!
+$StorageAccountName = "devfileconversion"
 $StorageAccountKey = "rgYcOvyRUc7uMn/xwZUsrJ/bDnp49EjzgicI/bgnf2XL9LFenHEger6VhqaRboz/9a1KtbgYu7zXSdfJgXuOeQ==" 
-$ContainerName = "`$web"  # i.e. wolfpics
+$ContainerName = "`$web"
 
 $Context = New-AzStorageContext -StorageAccountName $StorageAccountName -StorageAccountKey $StorageAccountKey
 $Blobs = Get-AzStorageBlob -Context $Context -Container $ContainerName
