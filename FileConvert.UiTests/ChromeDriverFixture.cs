@@ -11,7 +11,7 @@ namespace FileConvert.UiTests
 
         public ChromeDriverFixture()
         {
-            chromeOptions = new ChromeOptions();
+            chromeOptions = new ChromeOptions { Proxy = null };
             if (!Debugger.IsAttached)
             {
                 chromeOptions.AddArguments("headless");
