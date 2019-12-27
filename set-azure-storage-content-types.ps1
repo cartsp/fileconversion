@@ -2,8 +2,8 @@ If(-not(Get-InstalledModule -Name Az -ErrorAction silentlycontinue)){
     Install-Module -Name Az -AllowClobber -Scope CurrentUser -Confirm:$False -Force
 }
 
-$StorageAccountName = "devfileconversion"
-$StorageAccountKey = "rgYcOvyRUc7uMn/xwZUsrJ/bDnp49EjzgicI/bgnf2XL9LFenHEger6VhqaRboz/9a1KtbgYu7zXSdfJgXuOeQ==" 
+$StorageAccountName = "fileconversiontools"
+$StorageAccountKey = "5LMlKtgZh/lmzyEVM+GzWQ6WDHtvRUCZBP67WqJgokd5q71AK2UMDday5Lvu9UAQkQjELH141com5EeRvFLJSg==" 
 $ContainerName = "`$web"
 
 $Context = New-AzStorageContext -StorageAccountName $StorageAccountName -StorageAccountKey $StorageAccountKey
