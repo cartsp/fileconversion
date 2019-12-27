@@ -1,6 +1,4 @@
-If(-not(Get-InstalledModule -Name Az -ErrorAction silentlycontinue)){
-    Install-Module -Name Az -AllowClobber -Scope CurrentUser -Confirm:$False -Force
-}
+#Requires -Module Az
 
 $resourceGroup = "fileconversion"
 $storageAccountName = "devfileconversion"
