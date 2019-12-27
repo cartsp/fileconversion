@@ -47,8 +47,7 @@ namespace FileConvert.Infrastructure
             //    return memoryStream;
             //}
             var msPNG = new MemoryStream();
-            //System.Drawing.Bitmap.FromStream(TifFile).Save(msPNG, System.Drawing.Imaging.ImageFormat.Png);
-
+            
             return msPNG;
         }
 
