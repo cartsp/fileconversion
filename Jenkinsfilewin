@@ -8,11 +8,6 @@ pipeline {
              }
              
         }
-        stage('Nuget restore') {
-            steps {
-                bat 'dotnet restore'
-            }
-        }
         stage('Build') {
             steps {
                 bat 'dotnet publish -c Release'
