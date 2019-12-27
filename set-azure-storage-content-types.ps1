@@ -1,4 +1,6 @@
-#Requires -Module Az
+If(-not(Get-InstalledModule -Name Az -ErrorAction silentlycontinue)){
+    Install-Module -Name Az -AllowClobber -Scope CurrentUser -Confirm:$False -Force
+}
 
 $StorageAccountName = "devfileconversion"
 $StorageAccountKey = "rgYcOvyRUc7uMn/xwZUsrJ/bDnp49EjzgicI/bgnf2XL9LFenHEger6VhqaRboz/9a1KtbgYu7zXSdfJgXuOeQ==" 
