@@ -33,7 +33,7 @@ namespace FileConvert.Infrastructure
 
         public async Task<MemoryStream> ConvertDocToHTML(MemoryStream officeDocStream)
         {
-            return officeDocStream;
+            return await Task.FromResult(officeDocStream);
         }        
         
         public async Task<MemoryStream> ConverTifToPNG(MemoryStream TifFile)
@@ -48,7 +48,7 @@ namespace FileConvert.Infrastructure
             //}
             var msPNG = new MemoryStream();
             
-            return msPNG;
+            return await Task.FromResult(msPNG);
         }
 
         public async Task<MemoryStream> ConvertMP3ToWav(MemoryStream MP3Stream)
@@ -77,7 +77,7 @@ namespace FileConvert.Infrastructure
                 
             //}
             
-            return ConvertedWaveStream;
+            return await Task.FromResult(ConvertedWaveStream);
         }
 
         public async Task<MemoryStream> ConvertCSVToExcel(MemoryStream CSVStream)
@@ -90,7 +90,7 @@ namespace FileConvert.Infrastructure
 
                 worksheet.Cells["A1"].LoadFromText(csvFile, null);
 
-                return new MemoryStream(package.GetAsByteArray());
+                return await Task.FromResult(new MemoryStream(package.GetAsByteArray()));
             }
         }
         public IImmutableList<ConvertorDetails> GetAvailableConversions(string inputFileName)
