@@ -44,6 +44,8 @@ foreach ($Blob in $Blobs)
         $CloudBlockBlob.Properties.ContentType = $ContentType    
     }
     $CloudBlockBlob.Properties.ContentEncoding = 'gzip' 
+    $CloudBlockBlob.Properties.CacheControl = 'max-age=31536000' 
+
     $CloudBlockBlob.SetProperties()    
 }
 #remove dist directory now we are finished with it so its clean for next run
