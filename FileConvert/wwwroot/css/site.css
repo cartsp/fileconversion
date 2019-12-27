@@ -470,3 +470,6 @@ app {
 .input-group-prepend {
     width: 102px;
 }
+.index-available-conversions {
+    padding: 0 5% 50px
+}
