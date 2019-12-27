@@ -41,5 +41,12 @@ foreach ($Blob in $Blobs)
 
     $CloudBlockBlob.SetProperties()    
 }
+
+#purge cdn after deployment
+$ResourceGroup = 'fileconversion'
+$EndpointName = 'fileconversiontools'
+$ProfileName = 'FileConversioNCDN'
+Unpublish-AzCdnEndpointContent -ProfileName $ProfileName -ResourceGroupName $ResourceGroup -EndpointName $EndpointName -PurgeContent "/*" &
+
 #remove dist directory now we are finished with it so its clean for next run
 Remove-Item -Recurse -Force FileConvert\bin\Release\netstandard2.1\publish\FileConvert\dist -ErrorAction SilentlyContinue
