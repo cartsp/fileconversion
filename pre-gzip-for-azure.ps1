@@ -1,6 +1,4 @@
-If(-not(Get-InstalledModule 7Zip4PowerShell -ErrorAction silentlycontinue)){
-    Install-Module 7Zip4PowerShell -Confirm:$False -Force
-}
+#Requires -Module 7Zip4PowerShell
 
 $filePath = 'FileConvert\bin\Release\netstandard2.1\publish\FileConvert\dist'
 cd $filePath
