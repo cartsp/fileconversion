@@ -7,6 +7,6 @@ namespace FileConvert.Core
     {
         IImmutableList<ConvertorDetails> GetCompatibleExtensions();
 
-        IImmutableList<ConvertorDetails> GetAvailableConversions(string inputFileName);
+        IImmutableList<ConvertorDetails> GetAvailableConversions(string FileNameToConvert);
     }
 }

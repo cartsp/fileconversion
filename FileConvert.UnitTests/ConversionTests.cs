@@ -47,37 +47,20 @@ namespace FileConvert.UnitTests
         public async Task TestConvertingWordDocToHTMLReturnsStream()
         {
             //Arrange
-            MemoryStream officeDocStream = new MemoryStream();
-            var wordDocToConvert = new FileInfo("Documents/Test Document.docx");
-
-            using (FileStream file = new FileStream(wordDocToConvert.FullName, FileMode.Open, FileAccess.Read))
-            {
-                byte[] bytes = new byte[file.Length];
-                file.Read(bytes, 0, (int)file.Length);
-                officeDocStream.Write(bytes, 0, (int)file.Length);
-            }
+            var officeDocStream = ConvertFileToMemoryStream("Documents/Test Document.docx");
 
             //Act
             var result = await conversionService.ConvertDocToHTML(officeDocStream);
 
             //Assert
             Assert.IsType<MemoryStream>(result);
-
         }
 
         [Fact]
         public async Task TestConvertingCSVToExcelReturnsStream()
         {
             //Arrange
-            MemoryStream officeDocStream = new MemoryStream();
-            var wordDocToConvert = new FileInfo("Documents/Untitled 1.csv");
-
-            using (FileStream file = new FileStream(wordDocToConvert.FullName, FileMode.Open, FileAccess.Read))
-            {
-                byte[] bytes = new byte[file.Length];
-                file.Read(bytes, 0, (int)file.Length);
-                officeDocStream.Write(bytes, 0, (int)file.Length);
-            }
+            var officeDocStream = ConvertFileToMemoryStream("Documents/Untitled 1.csv");
 
             //Act
             var result = await conversionService.ConvertCSVToExcel(officeDocStream);
@@ -90,15 +73,7 @@ namespace FileConvert.UnitTests
         public async Task TestConvertingPNGToJPG()
         {
             //Arrange
-            MemoryStream pngStream = new MemoryStream();
-            var pngToConvert = new FileInfo("Documents/small-png-image.png");
-
-            using (FileStream file = new FileStream(pngToConvert.FullName, FileMode.Open, FileAccess.Read))
-            {
-                byte[] bytes = new byte[file.Length];
-                file.Read(bytes, 0, (int)file.Length);
-                pngStream.Write(bytes, 0, (int)file.Length);
-            }
+            MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
 
             var convertDetail = conversionService.GetCompatibleExtensions()
                                         .Where(con =>
@@ -110,8 +85,22 @@ namespace FileConvert.UnitTests
             var result = await convertDetail.Convertor(pngStream);
 
             //Assert
-            Assert.IsType<MemoryStream>(result);
             Assert.True(IsJpegImage(result));
+        }
+
+        private static MemoryStream ConvertFileToMemoryStream(String FileName)
+        {
+            MemoryStream convertedStream = new MemoryStream();
+            var fileToConvert = new FileInfo(FileName);
+
+            using (FileStream file = new FileStream(fileToConvert.FullName, FileMode.Open, FileAccess.Read))
+            {
+                byte[] bytes = new byte[file.Length];
+                file.Read(bytes, 0, (int)file.Length);
+                convertedStream.Write(bytes, 0, (int)file.Length);
+            }
+
+            return convertedStream;
         }
 
         [Fact]
@@ -134,12 +123,10 @@ namespace FileConvert.UnitTests
                                             con.ConvertedExtension == ".jpg")
                                         .FirstOrDefault();
 
-
             //Act
             var result = await convertDetail.Convertor(gifStream);
 
             //Assert
-            Assert.IsType<MemoryStream>(result);
             Assert.True(IsJpegImage(result));
         }
 
