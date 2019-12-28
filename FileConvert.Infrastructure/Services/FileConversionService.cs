@@ -144,12 +144,12 @@ namespace FileConvert.Infrastructure
                 return await Task.FromResult(new MemoryStream(package.GetAsByteArray()));
             }
         }
-        public IImmutableList<ConvertorDetails> GetAvailableConversions(string inputFileName)
+        public IImmutableList<ConvertorDetails> GetConvertorsForFile(string inputFileName)
         {
             return Convertors.Where(cd => cd.ExtensionToConvert == Path.GetExtension(inputFileName)).ToImmutableList();
         }
 
-        public IImmutableList<ConvertorDetails> GetCompatibleExtensions()
+        public IImmutableList<ConvertorDetails> GetAllAvailableConvertors()
         {
             return Convertors;
         }

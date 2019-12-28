@@ -48,11 +48,11 @@
 
     protected override void OnInitialized()
     {
-        availableExtensions = FileConversionService.GetCompatibleExtensions();
+        availableExtensions = FileConversionService.GetAllAvailableConvertors();
     }
 
     protected void OnFilterChange(ChangeEventArgs e)
     {
-        availableConvertors = FileConversionService.GetAvailableConversions(e.Value.ToString());
+        availableConvertors = FileConversionService.GetConvertorsForFile(e.Value.ToString());
     }
 }

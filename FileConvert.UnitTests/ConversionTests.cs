@@ -20,7 +20,7 @@ namespace FileConvert.UnitTests
             var DocumentName = "testdoc.csv";
 
             //Act
-            var result = conversionService.GetAvailableConversions(DocumentName);
+            var result = conversionService.GetConvertorsForFile(DocumentName);
 
             //Assert
             Assert.True(result.Count != 0);
@@ -35,7 +35,7 @@ namespace FileConvert.UnitTests
             MemoryStream officeDocStream = new MemoryStream();
 
             //Act
-            var result = conversionService.GetCompatibleExtensions();
+            var result = conversionService.GetAllAvailableConvertors();
 
             //Assert
             Assert.NotNull(result);
@@ -75,7 +75,7 @@ namespace FileConvert.UnitTests
             //Arrange
             MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
 
-            var AvailableConvertor = conversionService.GetCompatibleExtensions()
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
                                         .ThatConvertFrom(".png")
                                         .ThatConvertTo(".jpg")
                                         .FirstOrDefault();
@@ -93,7 +93,7 @@ namespace FileConvert.UnitTests
             //Arrange
             MemoryStream gifStream = ConvertFileToMemoryStream("Documents/sample.gif");
 
-            var AvailableConvertor = conversionService.GetCompatibleExtensions()
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
                                         .ThatConvertFrom(".gif")
                                         .ThatConvertTo(".jpg")
                                         .FirstOrDefault();

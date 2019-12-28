@@ -82,7 +82,7 @@
         if (file != null)
         {
             memoryStreamToConvert = new MemoryStream();
-            chosenConvertors = FileConversionService.GetAvailableConversions(System.IO.Path.GetExtension(file.Name).ToLower()).ToImmutableList();
+            chosenConvertors = FileConversionService.GetConvertorsForFile(System.IO.Path.GetExtension(file.Name).ToLower()).ToImmutableList();
             await file.Data.CopyToAsync(memoryStreamToConvert);
             FileName = file.Name;
         }

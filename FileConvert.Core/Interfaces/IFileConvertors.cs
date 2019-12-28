@@ -5,8 +5,8 @@ namespace FileConvert.Core
 {
     public interface IFileConvertors
     {
-        IImmutableList<ConvertorDetails> GetCompatibleExtensions();
+        IImmutableList<ConvertorDetails> GetAllAvailableConvertors();
 
-        IImmutableList<ConvertorDetails> GetAvailableConversions(string FileNameToConvert);
+        IImmutableList<ConvertorDetails> GetConvertorsForFile(string FileNameToConvert);
     }
 }
