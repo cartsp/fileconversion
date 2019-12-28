@@ -100,8 +100,13 @@ namespace FileConvert.UnitTests
                 pngStream.Write(bytes, 0, (int)file.Length);
             }
 
+            var convertDetail = conversionService.GetCompatibleExtensions()
+                                        .Where(con =>
+                                            con.ExtensionToConvert == ".png" &&
+                                            con.ConvertedExtension == ".jpg").FirstOrDefault();
+
             //Act
-            var result = await conversionService.ConvertImageTojpg(pngStream);
+            var result = await convertDetail.Convertor(pngStream);
 
             //Assert
             Assert.IsType<MemoryStream>(result);
@@ -122,8 +127,14 @@ namespace FileConvert.UnitTests
                 gifStream.Write(bytes, 0, (int)file.Length);
             }
 
+            var convertDetail = conversionService.GetCompatibleExtensions()
+                                        .Where(con =>
+                                            con.ExtensionToConvert == ".gif" &&
+                                            con.ConvertedExtension == ".jpg").FirstOrDefault();
+
+
             //Act
-            var result = await conversionService.ConvertImageTojpg(gifStream);
+            var result = await convertDetail.Convertor(gifStream);
 
             //Assert
             Assert.IsType<MemoryStream>(result);
