@@ -76,9 +76,8 @@ namespace FileConvert.UnitTests
             MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
 
             var convertDetail = conversionService.GetCompatibleExtensions()
-                                        .Where(con =>
-                                            con.ExtensionToConvert == ".png" &&
-                                            con.ConvertedExtension == ".jpg")
+                                        .ThatConvertFrom(".png")
+                                        .ThatConvertTo(".jpg")
                                         .FirstOrDefault();
 
             //Act
