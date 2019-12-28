@@ -103,7 +103,8 @@ namespace FileConvert.UnitTests
             var convertDetail = conversionService.GetCompatibleExtensions()
                                         .Where(con =>
                                             con.ExtensionToConvert == ".png" &&
-                                            con.ConvertedExtension == ".jpg").FirstOrDefault();
+                                            con.ConvertedExtension == ".jpg")
+                                        .FirstOrDefault();
 
             //Act
             var result = await convertDetail.Convertor(pngStream);
@@ -130,7 +131,8 @@ namespace FileConvert.UnitTests
             var convertDetail = conversionService.GetCompatibleExtensions()
                                         .Where(con =>
                                             con.ExtensionToConvert == ".gif" &&
-                                            con.ConvertedExtension == ".jpg").FirstOrDefault();
+                                            con.ConvertedExtension == ".jpg")
+                                        .FirstOrDefault();
 
 
             //Act
