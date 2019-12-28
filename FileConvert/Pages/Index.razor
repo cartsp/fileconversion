@@ -65,8 +65,6 @@
 
 @code {
     //With inspiration from Maria!
-    string loadStatus;
-    string convertStatus;
     string FileName;
     static IImmutableList<Core.Entities.ConvertorDetails> chosenConvertors;
     MemoryStream ms;
@@ -74,15 +72,11 @@
 
     protected async Task OnFilterChange(ChangeEventArgs e)
     {
-        await Task.Delay(100);
+
         var extensionToConvert = e.Value.ToString();
 
-        ConvertedMS = await chosenConvertors.ThatConvertTo(extensionToConvert).FirstOrDefault().Convert(ms);
-
-        await JS.SaveAs(System.IO.Path.GetFileNameWithoutExtension(FileName) + e.Value.ToString(), ConvertedMS.ToArray());
-
-        chosenConvertors = null;
-    }
+        await ConvertAndSaveFile(extensionToConvert);
+    }  
 
     async Task HandleSelection(IFileListEntry[] files)
     {
@@ -94,5 +88,22 @@
             await file.Data.CopyToAsync(ms);
             FileName = file.Name;
         }
+    }
+
+    protected async Task ConvertAndSaveFile(string ExtensionToConvert)
+    {
+        //delay to allow ui to close dropdown before conversion
+        await Task.Delay(10); 
+
+        var chosenConvertor = chosenConvertors
+                                .ThatConvertTo(ExtensionToConvert)
+                                .FirstOrDefault();
+
+        ConvertedMS = await chosenConvertor.Convert(ms);
+
+        await JS.SaveAs(Path.GetFileNameWithoutExtension(FileName) 
+                        + ExtensionToConvert, ConvertedMS.ToArray());
+
+        chosenConvertors = null;
     }
 }
