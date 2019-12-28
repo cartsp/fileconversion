@@ -33,6 +33,7 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(".mp3", ".wav", ConvertMP3ToWav));
             ConvertorListBuilder.Add(new ConvertorDetails(".tif", ".png", ConverTifToPNG));
             ConvertorListBuilder.Add(new ConvertorDetails(".png", ".jpg", ConvertPNGTojpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(".png", ".gif", ConvertPNGToGIF));
             
             Convertors = ConvertorListBuilder.ToImmutable();
         }
@@ -42,7 +43,6 @@ namespace FileConvert.Infrastructure
             return await Task.FromResult(officeDocStream);
         }   
         
-
         public async Task<MemoryStream> ConvertPNGTojpg(MemoryStream PNGStream)
         {
             MemoryStream outputStream = new MemoryStream();
@@ -54,6 +54,19 @@ namespace FileConvert.Infrastructure
 
             return await Task.FromResult(outputStream);
         }
+
+        public async Task<MemoryStream> ConvertPNGToGIF(MemoryStream PNGStream)
+        {
+            MemoryStream outputStream = new MemoryStream();
+
+            using (Image<Rgba32> image = Image.Load<Rgba32>(PNGStream.ToArray()))
+            {
+                image.SaveAsGif(outputStream);
+            }
+
+            return await Task.FromResult(outputStream);
+        }
+
 
         public async Task<MemoryStream> ConverTifToPNG(MemoryStream TifFile)
         {
