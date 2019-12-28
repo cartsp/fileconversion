@@ -87,6 +87,24 @@ namespace FileConvert.UnitTests
             Assert.True(IsJpegImage(result));
         }
 
+        [Fact]
+        public async Task TestConvertingGIFToJPG()
+        {
+            //Arrange
+            MemoryStream gifStream = ConvertFileToMemoryStream("Documents/sample.gif");
+
+            var convertDetail = conversionService.GetCompatibleExtensions()
+                                        .ThatConvertFrom(".gif")
+                                        .ThatConvertTo(".jpg")
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await convertDetail.Convertor(gifStream);
+
+            //Assert
+            Assert.True(IsJpegImage(result));
+        }
+
         private static MemoryStream ConvertFileToMemoryStream(String FileName)
         {
             MemoryStream convertedStream = new MemoryStream();
@@ -100,33 +118,6 @@ namespace FileConvert.UnitTests
             }
 
             return convertedStream;
-        }
-
-        [Fact]
-        public async Task TestConvertingGIFToJPG()
-        {
-            //Arrange
-            MemoryStream gifStream = new MemoryStream();
-            var gifToConvert = new FileInfo("Documents/sample.gif");
-
-            using (FileStream file = new FileStream(gifToConvert.FullName, FileMode.Open, FileAccess.Read))
-            {
-                byte[] bytes = new byte[file.Length];
-                file.Read(bytes, 0, (int)file.Length);
-                gifStream.Write(bytes, 0, (int)file.Length);
-            }
-
-            var convertDetail = conversionService.GetCompatibleExtensions()
-                                        .Where(con =>
-                                            con.ExtensionToConvert == ".gif" &&
-                                            con.ConvertedExtension == ".jpg")
-                                        .FirstOrDefault();
-
-            //Act
-            var result = await convertDetail.Convertor(gifStream);
-
-            //Assert
-            Assert.True(IsJpegImage(result));
         }
 
         static bool IsJpegImage(MemoryStream jpg)
