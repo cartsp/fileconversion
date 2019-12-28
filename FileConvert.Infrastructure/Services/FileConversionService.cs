@@ -26,13 +26,14 @@ namespace FileConvert.Infrastructure
         public void CreateConvertorList()
         {
             var ConvertorListBuilder = ImmutableList.CreateBuilder<ConvertorDetails>(); // returns ImmutableList.Builder
+            
             ConvertorListBuilder.Add(new ConvertorDetails(".csv", ".xls", ConvertCSVToExcel));
             ConvertorListBuilder.Add(new ConvertorDetails(".csv", ".xlsx", ConvertCSVToExcel));
             ConvertorListBuilder.Add(new ConvertorDetails(".docx", ".html", ConvertDocToHTML));
             ConvertorListBuilder.Add(new ConvertorDetails(".mp3", ".wav", ConvertMP3ToWav));
             ConvertorListBuilder.Add(new ConvertorDetails(".tif", ".png", ConverTifToPNG));
-            ConvertorListBuilder.Add(new ConvertorDetails(".png", ".jpg", ConverTifToPNG));
-            //Todo add extension name lookup eg Excel 2007 = .xlsx
+            ConvertorListBuilder.Add(new ConvertorDetails(".png", ".jpg", ConvertPNGTojpg));
+            
             Convertors = ConvertorListBuilder.ToImmutable();
         }
 
@@ -46,15 +47,13 @@ namespace FileConvert.Infrastructure
         {
             byte[] data = PNGStream.ToArray();
             MemoryStream outputStream = new MemoryStream();
-            PNGStream.Position = 0;
+
             using (Image<Rgba32> image = Image.Load<Rgba32>(data))
             {
                 image.SaveAsJpeg(outputStream, new JpegEncoder() { Quality = 80 });
             }
-            outputStream.Position = 0;
 
-            return await Task.FromResult(PNGStream);
-            //return await Task.FromResult(new MemoryStream(data.ToArray()));
+            return await Task.FromResult(outputStream);
         }
 
         public async Task<MemoryStream> ConverTifToPNG(MemoryStream TifFile)
