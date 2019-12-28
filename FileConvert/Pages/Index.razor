@@ -66,15 +66,14 @@
 @code {
     //With inspiration from Maria!
     string FileName;
-    static IImmutableList<Core.Entities.ConvertorDetails> chosenConvertors;
-    MemoryStream ms;
-    MemoryStream ConvertedMS;
+    IImmutableList<Core.Entities.ConvertorDetails> chosenConvertors;
+    MemoryStream memoryStreamToConvert;
 
     protected async Task OnSelectingConversion(ChangeEventArgs e)
     {
         var extensionToConvert = e.Value.ToString();
 
-        await ConvertFileAndSave(extensionToConvert);
+        await ConvertFileAndSave(extensionToConvert, memoryStreamToConvert);
     }
 
     async Task HandleSelection(IFileListEntry[] files)
@@ -82,14 +81,14 @@
         var file = files.FirstOrDefault();
         if (file != null)
         {
-            ms = new MemoryStream();
+            memoryStreamToConvert = new MemoryStream();
             chosenConvertors = FileConversionService.GetAvailableConversions(System.IO.Path.GetExtension(file.Name).ToLower()).ToImmutableList();
-            await file.Data.CopyToAsync(ms);
+            await file.Data.CopyToAsync(memoryStreamToConvert);
             FileName = file.Name;
         }
     }
 
-    protected async Task ConvertFileAndSave(string ExtensionToConvert)
+    protected async Task ConvertFileAndSave(string ExtensionToConvert, MemoryStream MemoryStreamToConvert)
     {
         //delay to allow ui to close dropdown before conversion
         await Task.Delay(10);
@@ -98,11 +97,11 @@
                                 .ThatConvertTo(ExtensionToConvert)
                                 .FirstOrDefault();
 
-        ConvertedMS = await chosenConvertor.Convert(ms);
-
-        await JS.SaveAs(Path.GetFileNameWithoutExtension(FileName)
-                        + ExtensionToConvert, ConvertedMS.ToArray());
-
-        chosenConvertors = null;
+        using (var ConvertedMS = await chosenConvertor.Convert(MemoryStreamToConvert))
+        {
+            await JS.SaveAs(Path.GetFileNameWithoutExtension(FileName)
+                            + ExtensionToConvert, ConvertedMS.ToArray());
+            chosenConvertors = null;
+        }
     }
 }
