@@ -45,10 +45,9 @@ namespace FileConvert.Infrastructure
 
         public async Task<MemoryStream> ConvertPNGTojpg(MemoryStream PNGStream)
         {
-            byte[] data = PNGStream.ToArray();
             MemoryStream outputStream = new MemoryStream();
 
-            using (Image<Rgba32> image = Image.Load<Rgba32>(data))
+            using (Image<Rgba32> image = Image.Load<Rgba32>(PNGStream.ToArray()))
             {
                 image.SaveAsJpeg(outputStream, new JpegEncoder() { Quality = 80 });
             }
