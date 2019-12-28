@@ -32,8 +32,19 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(".docx", ".html", ConvertDocToHTML));
             ConvertorListBuilder.Add(new ConvertorDetails(".mp3", ".wav", ConvertMP3ToWav));
             ConvertorListBuilder.Add(new ConvertorDetails(".tif", ".png", ConverTifToPNG));
-            ConvertorListBuilder.Add(new ConvertorDetails(".png", ".jpg", ConvertPNGTojpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(".png", ".jpg", ConvertImageTojpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(".png", ".jpeg", ConvertImageTojpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(".gif", ".jpeg", ConvertImageTojpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(".bmp", ".jpeg", ConvertImageTojpg));
             ConvertorListBuilder.Add(new ConvertorDetails(".png", ".gif", ConvertPNGToGIF));
+            ConvertorListBuilder.Add(new ConvertorDetails(".gif", ".png", ConvertImageToPNG));
+            ConvertorListBuilder.Add(new ConvertorDetails(".jpg", ".png", ConvertImageToPNG));
+            ConvertorListBuilder.Add(new ConvertorDetails(".jpeg", ".png", ConvertImageToPNG));
+            ConvertorListBuilder.Add(new ConvertorDetails(".bmp", ".png", ConvertImageToPNG));
+            //ConvertorListBuilder.Add(new ConvertorDetails(".png", ".bmp", ConvertImageToBMP));
+            //ConvertorListBuilder.Add(new ConvertorDetails(".gif", ".bmp", ConvertImageToBMP));
+            //ConvertorListBuilder.Add(new ConvertorDetails(".jpg", ".bmp", ConvertImageToBMP));
+            //ConvertorListBuilder.Add(new ConvertorDetails(".jpeg", ".bmp", ConvertImageToBMP));
             
             Convertors = ConvertorListBuilder.ToImmutable();
         }
@@ -43,7 +54,7 @@ namespace FileConvert.Infrastructure
             return await Task.FromResult(officeDocStream);
         }   
         
-        public async Task<MemoryStream> ConvertPNGTojpg(MemoryStream PNGStream)
+        public async Task<MemoryStream> ConvertImageTojpg(MemoryStream PNGStream)
         {
             MemoryStream outputStream = new MemoryStream();
 
@@ -54,6 +65,30 @@ namespace FileConvert.Infrastructure
 
             return await Task.FromResult(outputStream);
         }
+
+        public async Task<MemoryStream> ConvertImageToPNG(MemoryStream ImageStream)
+        {
+            MemoryStream outputStream = new MemoryStream();
+
+            using (Image<Rgba32> image = Image.Load<Rgba32>(ImageStream.ToArray()))
+            {
+                image.SaveAsPng(outputStream);
+            }
+
+            return await Task.FromResult(outputStream);
+        }
+
+        //public async Task<MemoryStream> ConvertImageToBMP(MemoryStream PNGStream)
+        //{
+        //    MemoryStream outputStream = new MemoryStream();
+
+        //    using (Image<Rgba32> image = Image.Load<Rgba32>(PNGStream.ToArray()))
+        //    {
+        //        image.SaveAsBmp(outputStream);
+        //    }
+
+        //    return await Task.FromResult(outputStream);
+        //}
 
         public async Task<MemoryStream> ConvertPNGToGIF(MemoryStream PNGStream)
         {

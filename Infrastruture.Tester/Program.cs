@@ -22,7 +22,7 @@ namespace Infrastruture.Tester
                 file.Read(bytes, 0, (int)file.Length);
                 pngStream.Write(bytes, 0, (int)file.Length);
                 pngStream.Position = 0;
-                var result = await conversionService.ConvertPNGTojpg(pngStream);
+                var result = await conversionService.ConvertImageTojpg(pngStream);
                 
                 //FileStream jpgfile = new FileStream("file.xls", FileMode.Create, FileAccess.Write);
                 FileStream jpgfile = new FileStream("file.jpg", FileMode.Create, FileAccess.Write);
