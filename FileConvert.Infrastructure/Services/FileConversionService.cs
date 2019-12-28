@@ -35,8 +35,13 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(".png", ".jpg", ConvertImageTojpg));
             ConvertorListBuilder.Add(new ConvertorDetails(".png", ".jpeg", ConvertImageTojpg));
             ConvertorListBuilder.Add(new ConvertorDetails(".gif", ".jpeg", ConvertImageTojpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(".gif", ".jpg", ConvertImageTojpg));
             ConvertorListBuilder.Add(new ConvertorDetails(".bmp", ".jpeg", ConvertImageTojpg));
-            ConvertorListBuilder.Add(new ConvertorDetails(".png", ".gif", ConvertPNGToGIF));
+            ConvertorListBuilder.Add(new ConvertorDetails(".bmp", ".jpg", ConvertImageTojpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(".png", ".gif", ConvertImageToGIF));
+            ConvertorListBuilder.Add(new ConvertorDetails(".jpg", ".gif", ConvertImageToGIF));
+            ConvertorListBuilder.Add(new ConvertorDetails(".jpeg", ".gif", ConvertImageToGIF));
+            ConvertorListBuilder.Add(new ConvertorDetails(".bmp", ".gif", ConvertImageToGIF));
             ConvertorListBuilder.Add(new ConvertorDetails(".gif", ".png", ConvertImageToPNG));
             ConvertorListBuilder.Add(new ConvertorDetails(".jpg", ".png", ConvertImageToPNG));
             ConvertorListBuilder.Add(new ConvertorDetails(".jpeg", ".png", ConvertImageToPNG));
@@ -90,11 +95,11 @@ namespace FileConvert.Infrastructure
         //    return await Task.FromResult(outputStream);
         //}
 
-        public async Task<MemoryStream> ConvertPNGToGIF(MemoryStream PNGStream)
+        public async Task<MemoryStream> ConvertImageToGIF(MemoryStream ImageStream)
         {
             MemoryStream outputStream = new MemoryStream();
 
-            using (Image<Rgba32> image = Image.Load<Rgba32>(PNGStream.ToArray()))
+            using (Image<Rgba32> image = Image.Load<Rgba32>(ImageStream.ToArray()))
             {
                 image.SaveAsGif(outputStream);
             }

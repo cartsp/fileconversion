@@ -40,7 +40,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(14, result.Count);
+            Assert.Equal(19, result.Count);
         }
 
         [Fact]
@@ -84,6 +84,72 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.IsType<MemoryStream>(result);
+        }
+
+        [Fact]
+        public async Task TestConvertingPNGToJPG()
+        {
+            //Arrange
+            MemoryStream pngStream = new MemoryStream();
+            var pngToConvert = new FileInfo("Documents/small-png-image.png");
+
+            using (FileStream file = new FileStream(pngToConvert.FullName, FileMode.Open, FileAccess.Read))
+            {
+                byte[] bytes = new byte[file.Length];
+                file.Read(bytes, 0, (int)file.Length);
+                pngStream.Write(bytes, 0, (int)file.Length);
+            }
+
+            //Act
+            var result = await conversionService.ConvertImageTojpg(pngStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+            Assert.True(IsJpegImage(result));
+        }
+
+        [Fact]
+        public async Task TestConvertingGIFToJPG()
+        {
+            //Arrange
+            MemoryStream gifStream = new MemoryStream();
+            var gifToConvert = new FileInfo("Documents/sample.gif");
+
+            using (FileStream file = new FileStream(gifToConvert.FullName, FileMode.Open, FileAccess.Read))
+            {
+                byte[] bytes = new byte[file.Length];
+                file.Read(bytes, 0, (int)file.Length);
+                gifStream.Write(bytes, 0, (int)file.Length);
+            }
+
+            //Act
+            var result = await conversionService.ConvertImageTojpg(gifStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+            Assert.True(IsJpegImage(result));
+        }
+
+        static bool IsJpegImage(MemoryStream jpg)
+        {
+            try
+            {
+                using (System.Drawing.Image img = System.Drawing.Image.FromStream(jpg))
+                {
+                    // Two image formats can be compared using the Equals method
+                    // See http://msdn.microsoft.com/en-us/library/system.drawing.imaging.imageformat.aspx
+                    //
+                    return img.RawFormat.Equals(System.Drawing.Imaging.ImageFormat.Jpeg);
+                }
+            }
+            catch (OutOfMemoryException)
+            {
+                // Image.FromFile throws an OutOfMemoryException 
+                // if the file does not have a valid image format or
+                // GDI+ does not support the pixel format of the file.
+                //
+                return false;
+            }
         }
     }
 }

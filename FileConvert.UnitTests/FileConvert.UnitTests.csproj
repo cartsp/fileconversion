@@ -7,11 +7,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Documents\sample.gif" />
+    <None Remove="Documents\small-png-image.png" />
     <None Remove="Documents\Test Document.docx" />
     <None Remove="Documents\Untitled 1.csv" />
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Documents\sample.gif">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Documents\small-png-image.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Documents\Test Document.docx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
