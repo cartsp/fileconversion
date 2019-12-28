@@ -68,14 +68,16 @@
     string loadStatus;
     string convertStatus;
     string FileName;
-    static List<Core.Entities.ConvertorDetails> chosenConvertors;
+    static IImmutableList<Core.Entities.ConvertorDetails> chosenConvertors;
     MemoryStream ms;
     MemoryStream ConvertedMS;
 
     protected async Task OnFilterChange(ChangeEventArgs e)
     {
         await Task.Delay(100);
-        ConvertedMS = await chosenConvertors.Where(a => a.ConvertedExtension == e.Value.ToString()).FirstOrDefault().Convertor(ms);
+        var extensionToConvert = e.Value.ToString();
+
+        ConvertedMS = await chosenConvertors.ThatConvertTo(extensionToConvert).FirstOrDefault().Convert(ms);
 
         await JS.SaveAs(System.IO.Path.GetFileNameWithoutExtension(FileName) + e.Value.ToString(), ConvertedMS.ToArray());
 
@@ -88,12 +90,9 @@
         if (file != null)
         {
             ms = new MemoryStream();
-            chosenConvertors = FileConversionService.GetAvailableConversions(System.IO.Path.GetExtension(file.Name).ToLower()).ToList();
+            chosenConvertors = FileConversionService.GetAvailableConversions(System.IO.Path.GetExtension(file.Name).ToLower()).ToImmutableList();
             await file.Data.CopyToAsync(ms);
             FileName = file.Name;
-            loadStatus = $"Finished loading {file.Size} bytes from {file.Name}";
-
-            convertStatus = $"Finished converting {file.Name} in ms";
         }
     }
 }

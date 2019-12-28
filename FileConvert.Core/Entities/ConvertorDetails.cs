@@ -8,15 +8,15 @@ namespace FileConvert.Core.Entities
 {
     public class ConvertorDetails
     {
-        public string ExtensionToConvert { get; set; }
-        public string ConvertedExtension { get; set; }
-        public Func<MemoryStream, Task<MemoryStream>> Convertor { get; set; }
+        public string ExtensionToConvert { get;}
+        public string ConvertedExtension { get;}
+        public Func<MemoryStream, Task<MemoryStream>> Convert { get;}
 
         public ConvertorDetails(string ExtensionToConvert, string ConvertedExtension, Func<MemoryStream, Task<MemoryStream>> Convertor)
         {
             this.ExtensionToConvert = ExtensionToConvert;
             this.ConvertedExtension = ConvertedExtension;
-            this.Convertor = Convertor;
+            this.Convert = Convertor;
         }
     }
 }

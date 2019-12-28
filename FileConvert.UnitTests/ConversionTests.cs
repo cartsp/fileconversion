@@ -75,13 +75,13 @@ namespace FileConvert.UnitTests
             //Arrange
             MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
 
-            var convertDetail = conversionService.GetCompatibleExtensions()
+            var AvailableConvertor = conversionService.GetCompatibleExtensions()
                                         .ThatConvertFrom(".png")
                                         .ThatConvertTo(".jpg")
                                         .FirstOrDefault();
 
             //Act
-            var result = await convertDetail.Convertor(pngStream);
+            var result = await AvailableConvertor.Convert(pngStream);
 
             //Assert
             Assert.True(IsJpegImage(result));
@@ -93,13 +93,13 @@ namespace FileConvert.UnitTests
             //Arrange
             MemoryStream gifStream = ConvertFileToMemoryStream("Documents/sample.gif");
 
-            var convertDetail = conversionService.GetCompatibleExtensions()
+            var AvailableConvertor = conversionService.GetCompatibleExtensions()
                                         .ThatConvertFrom(".gif")
                                         .ThatConvertTo(".jpg")
                                         .FirstOrDefault();
 
             //Act
-            var result = await convertDetail.Convertor(gifStream);
+            var result = await AvailableConvertor.Convert(gifStream);
 
             //Assert
             Assert.True(IsJpegImage(result));
