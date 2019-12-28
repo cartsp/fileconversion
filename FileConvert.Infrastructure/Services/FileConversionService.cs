@@ -7,6 +7,10 @@ using System.Linq;
 using FileConvert.Core.Entities;
 //using NAudio.Wave;
 using OfficeOpenXml;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using System;
 
 namespace FileConvert.Infrastructure
 {
@@ -27,6 +31,7 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(".docx", ".html", ConvertDocToHTML));
             ConvertorListBuilder.Add(new ConvertorDetails(".mp3", ".wav", ConvertMP3ToWav));
             ConvertorListBuilder.Add(new ConvertorDetails(".tif", ".png", ConverTifToPNG));
+            ConvertorListBuilder.Add(new ConvertorDetails(".png", ".jpg", ConverTifToPNG));
             //Todo add extension name lookup eg Excel 2007 = .xlsx
             Convertors = ConvertorListBuilder.ToImmutable();
         }
@@ -34,8 +39,24 @@ namespace FileConvert.Infrastructure
         public async Task<MemoryStream> ConvertDocToHTML(MemoryStream officeDocStream)
         {
             return await Task.FromResult(officeDocStream);
-        }        
+        }   
         
+
+        public async Task<MemoryStream> ConvertPNGTojpg(MemoryStream PNGStream)
+        {
+            byte[] data = PNGStream.ToArray();
+            MemoryStream outputStream = new MemoryStream();
+            PNGStream.Position = 0;
+            using (Image<Rgba32> image = Image.Load<Rgba32>(data))
+            {
+                image.SaveAsJpeg(outputStream, new JpegEncoder() { Quality = 80 });
+            }
+            outputStream.Position = 0;
+
+            return await Task.FromResult(PNGStream);
+            //return await Task.FromResult(new MemoryStream(data.ToArray()));
+        }
+
         public async Task<MemoryStream> ConverTifToPNG(MemoryStream TifFile)
         {
             //using (var magicImage = new MagickImage(JPGfile))
@@ -55,27 +76,6 @@ namespace FileConvert.Infrastructure
         {
             MemoryStream ConvertedWaveStream = new MemoryStream();
 
-            //    using (var reader = new Mp3FileReader(officeDocStream)
-            //    {
-            //        WaveFileWriter.WriteWavFileToStream(ConvertedWaveFile, reader.Mp3WaveFormat);
-            //    }
-            //}
-            ///MP3Stream.Position = 0;
-            //var base64File = Encoding.ASCII.GetString(MP3Stream.ToArray());
-            //var fileBytes = Encoding.UTF8.GetBytes(Base64UrlEncoder.Decode(Encoding.ASCII.GetString(MP3Stream.ToArray())));
-            ///ar fileBytes = Convert.FromBase64String(base64File);
-            //using (WaveStream waveStream = WaveFormatConversionStream.CreatePcmStream(new Mp3FileReader(MP3Stream)))
-            //using (WaveFileWriter waveFileWriter = new WaveFileWriter(ConvertedWaveStream, waveStream.WaveFormat))
-            //{
-            //    byte[] bytes = new byte[waveStream.Length];
-            //    waveStream.Position = 0;
-            //    await waveStream.ReadAsync(bytes, 0, (int)waveStream.Length);
-            //    await waveFileWriter.WriteAsync(bytes, 0, bytes.Length);
-            //    waveFileWriter.Flush();
-            //    ConvertedWaveStream.Position = 0;
-
-                
-            //}
             
             return await Task.FromResult(ConvertedWaveStream);
         }

@@ -75,6 +75,7 @@
     protected async Task OnFilterChange(ChangeEventArgs e)
     {
         ConvertedMS = await chosenConvertors.Where(a => a.ConvertedExtension == e.Value.ToString()).FirstOrDefault().Convertor(ms);
+        
         await JS.SaveAs(System.IO.Path.GetFileNameWithoutExtension(FileName) + e.Value.ToString(), ConvertedMS.ToArray());
 
         chosenConvertors = null;
