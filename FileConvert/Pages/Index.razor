@@ -27,7 +27,7 @@
                                 <div class="input-group-prepend">
                                     <label class="input-group-text w-100" for="inputGroupSelect01">Convert To</label>
                                 </div>
-                                <select class="custom-select" id="inputGroupSelect01" @onchange="OnFilterChange">
+                                <select class="custom-select" id="inputGroupSelect01" @onchange="OnSelectingConversion">
                                     @if (chosenConvertors != null)
                                     {
                                         <option disabled selected value>Select Extension</option>
@@ -70,13 +70,12 @@
     MemoryStream ms;
     MemoryStream ConvertedMS;
 
-    protected async Task OnFilterChange(ChangeEventArgs e)
+    protected async Task OnSelectingConversion(ChangeEventArgs e)
     {
-
         var extensionToConvert = e.Value.ToString();
 
-        await ConvertAndSaveFile(extensionToConvert);
-    }  
+        await ConvertFileAndSave(extensionToConvert);
+    }
 
     async Task HandleSelection(IFileListEntry[] files)
     {
@@ -90,10 +89,10 @@
         }
     }
 
-    protected async Task ConvertAndSaveFile(string ExtensionToConvert)
+    protected async Task ConvertFileAndSave(string ExtensionToConvert)
     {
         //delay to allow ui to close dropdown before conversion
-        await Task.Delay(10); 
+        await Task.Delay(10);
 
         var chosenConvertor = chosenConvertors
                                 .ThatConvertTo(ExtensionToConvert)
@@ -101,7 +100,7 @@
 
         ConvertedMS = await chosenConvertor.Convert(ms);
 
-        await JS.SaveAs(Path.GetFileNameWithoutExtension(FileName) 
+        await JS.SaveAs(Path.GetFileNameWithoutExtension(FileName)
                         + ExtensionToConvert, ConvertedMS.ToArray());
 
         chosenConvertors = null;
