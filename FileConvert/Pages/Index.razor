@@ -65,8 +65,13 @@ else
         </div>
     }
 }
-<br />
-
+@if (Converting)
+{
+    <div class="justify-content-center d-flex row mt-3">
+        <div class="spin"></div>
+        <div class="w-100 mt-2"><span class="pulsate">Converting file...</span></div>
+    </div>
+}
 <div class="d-flex justify-content-center fixed-bottom index-available-conversions">
     <AvailableConversions />
 </div>
@@ -75,6 +80,7 @@ else
     //With inspiration from Maria!
     string FileName;
     bool DoubleBuffer = true;
+    bool Converting = false;
     IImmutableList<Core.Entities.ConvertorDetails> chosenConvertors;
     MemoryStream memoryStreamToConvert;
 
@@ -101,18 +107,22 @@ else
 
     protected async Task ConvertFileAndSave(string ExtensionToConvert, MemoryStream MemoryStreamToConvert)
     {
-        //delay to allow ui to close dropdown before conversion
-        await Task.Delay(10);
-
         var chosenConvertor = chosenConvertors
                                 .ThatConvertTo(ExtensionToConvert)
                                 .FirstOrDefault();
+
+        chosenConvertors = null;
+        Converting = true;
+
+        //delay to allow ui to change before conversion
+        await Task.Delay(50);
 
         using (var ConvertedMS = await chosenConvertor.Convert(MemoryStreamToConvert))
         {
             await JS.SaveAs(Path.GetFileNameWithoutExtension(FileName)
                             + ExtensionToConvert, ConvertedMS.ToArray());
-            chosenConvertors = null;
+            
         }
+        Converting = false;
     }
 }

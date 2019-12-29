@@ -473,3 +473,19 @@ app {
 .index-available-conversions {
     padding: 0 5% 50px
 }
+.spin {
+    -webkit-animation: 3s rotate linear infinite;
+    animation: 3s rotate linear infinite;
+    background: red;
+    width: 30px;
+    height: 30px;
+}
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
