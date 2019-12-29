@@ -16,7 +16,7 @@ namespace FileConvert.Infrastructure
 {
     public class FileConversionService : IFileConvertors
     {
-        public static IImmutableList<ConvertorDetails> Convertors;
+        static IImmutableList<ConvertorDetails> Convertors;
 
         public FileConversionService()
         {
@@ -56,7 +56,7 @@ namespace FileConvert.Infrastructure
 
         public async Task<MemoryStream> ConvertDocToHTML(MemoryStream officeDocStream)
         {
-            return await Task.FromResult(officeDocStream);
+            return await Task.FromResult(officeDocStream).ConfigureAwait(true);
         }   
         
         public async Task<MemoryStream> ConvertImageTojpg(MemoryStream PNGStream)
@@ -68,7 +68,7 @@ namespace FileConvert.Infrastructure
                 image.SaveAsJpeg(outputStream, new JpegEncoder() { Quality = 80 });
             }
 
-            return await Task.FromResult(outputStream);
+            return await Task.FromResult(outputStream).ConfigureAwait(true);
         }
 
         public async Task<MemoryStream> ConvertImageToPNG(MemoryStream ImageStream)
@@ -80,7 +80,7 @@ namespace FileConvert.Infrastructure
                 image.SaveAsPng(outputStream);
             }
 
-            return await Task.FromResult(outputStream);
+            return await Task.FromResult(outputStream).ConfigureAwait(true);
         }
 
         //public async Task<MemoryStream> ConvertImageToBMP(MemoryStream PNGStream)
@@ -104,7 +104,7 @@ namespace FileConvert.Infrastructure
                 image.SaveAsGif(outputStream);
             }
 
-            return await Task.FromResult(outputStream);
+            return await Task.FromResult(outputStream).ConfigureAwait(true);
         }
 
 
@@ -120,7 +120,7 @@ namespace FileConvert.Infrastructure
             //}
             var msPNG = new MemoryStream();
             
-            return await Task.FromResult(msPNG);
+            return await Task.FromResult(msPNG).ConfigureAwait(true);
         }
 
         public async Task<MemoryStream> ConvertMP3ToWav(MemoryStream MP3Stream)
@@ -128,7 +128,7 @@ namespace FileConvert.Infrastructure
             MemoryStream ConvertedWaveStream = new MemoryStream();
 
             
-            return await Task.FromResult(ConvertedWaveStream);
+            return await Task.FromResult(ConvertedWaveStream).ConfigureAwait(true);
         }
 
         public async Task<MemoryStream> ConvertCSVToExcel(MemoryStream CSVStream)
@@ -141,7 +141,7 @@ namespace FileConvert.Infrastructure
 
                 worksheet.Cells["A1"].LoadFromText(csvFile, null);
 
-                return await Task.FromResult(new MemoryStream(package.GetAsByteArray()));
+                return await Task.FromResult(new MemoryStream(package.GetAsByteArray())).ConfigureAwait(true);
             }
         }
         public IImmutableList<ConvertorDetails> GetConvertorsForFile(string inputFileName)
