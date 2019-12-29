@@ -6,7 +6,7 @@
 <h2>Secure in browser file conversion</h2>
 <p>Enterprise friendly - no files uploaded to a server</p>
 
-@if (DoubleBuffer)
+@if (DoubleBuffer) //https://github.com/SteveSandersonMS/BlazorInputFile/issues/2
 {
     <InputFile class="inputfile" id="file-1" name="file-1" OnChange="HandleSelection" />
 }
