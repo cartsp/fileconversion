@@ -71,6 +71,8 @@ namespace FileConvert.UnitTests
             Assert.IsType<MemoryStream>(result);
         }
 
+        #region Image tests
+
         [Fact]
         public async Task TestConvertingPNGToJPG()
         {
@@ -232,6 +234,8 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.True(IsImageFormatCorrect(result, ImageFormat.Png));
         }
+
+        #endregion Image tests
 
         #region Helper Methods
 
