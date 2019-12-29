@@ -10,7 +10,7 @@ using OfficeOpenXml;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Formats.Jpeg;
-using System;
+using FileConvert.Core.ValueObjects;
 
 namespace FileConvert.Infrastructure
 {
@@ -27,25 +27,25 @@ namespace FileConvert.Infrastructure
         {
             var ConvertorListBuilder = ImmutableList.CreateBuilder<ConvertorDetails>(); // returns ImmutableList.Builder
             
-            ConvertorListBuilder.Add(new ConvertorDetails(".csv", ".xls", ConvertCSVToExcel));
-            ConvertorListBuilder.Add(new ConvertorDetails(".csv", ".xlsx", ConvertCSVToExcel));
-            ConvertorListBuilder.Add(new ConvertorDetails(".docx", ".html", ConvertDocToHTML));
-            ConvertorListBuilder.Add(new ConvertorDetails(".mp3", ".wav", ConvertMP3ToWav));
-            ConvertorListBuilder.Add(new ConvertorDetails(".tif", ".png", ConverTifToPNG));
-            ConvertorListBuilder.Add(new ConvertorDetails(".png", ".jpg", ConvertImageTojpg));
-            ConvertorListBuilder.Add(new ConvertorDetails(".png", ".jpeg", ConvertImageTojpg));
-            ConvertorListBuilder.Add(new ConvertorDetails(".gif", ".jpeg", ConvertImageTojpg));
-            ConvertorListBuilder.Add(new ConvertorDetails(".gif", ".jpg", ConvertImageTojpg));
-            ConvertorListBuilder.Add(new ConvertorDetails(".bmp", ".jpeg", ConvertImageTojpg));
-            ConvertorListBuilder.Add(new ConvertorDetails(".bmp", ".jpg", ConvertImageTojpg));
-            ConvertorListBuilder.Add(new ConvertorDetails(".png", ".gif", ConvertImageToGIF));
-            ConvertorListBuilder.Add(new ConvertorDetails(".jpg", ".gif", ConvertImageToGIF));
-            ConvertorListBuilder.Add(new ConvertorDetails(".jpeg", ".gif", ConvertImageToGIF));
-            ConvertorListBuilder.Add(new ConvertorDetails(".bmp", ".gif", ConvertImageToGIF));
-            ConvertorListBuilder.Add(new ConvertorDetails(".gif", ".png", ConvertImageToPNG));
-            ConvertorListBuilder.Add(new ConvertorDetails(".jpg", ".png", ConvertImageToPNG));
-            ConvertorListBuilder.Add(new ConvertorDetails(".jpeg", ".png", ConvertImageToPNG));
-            ConvertorListBuilder.Add(new ConvertorDetails(".bmp", ".png", ConvertImageToPNG));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.xls, ConvertCSVToExcel));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.xlsx, ConvertCSVToExcel));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.docx, FileExtension.html, ConvertDocToHTML));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.mp3, FileExtension.wav, ConvertMP3ToWav));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tif, FileExtension.png, ConverTifToPNG));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.png, FileExtension.jpg, ConvertImageTojpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.png, FileExtension.jpeg, ConvertImageTojpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.gif, FileExtension.jpeg, ConvertImageTojpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.gif, FileExtension.jpg, ConvertImageTojpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.bmp, FileExtension.jpeg, ConvertImageTojpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.bmp, FileExtension.jpg, ConvertImageTojpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.png, FileExtension.gif, ConvertImageToGIF));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jpg, FileExtension.gif, ConvertImageToGIF));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jpeg, FileExtension.gif, ConvertImageToGIF));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.bmp, FileExtension.gif, ConvertImageToGIF));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.gif, FileExtension.png, ConvertImageToPNG));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jpg, FileExtension.png, ConvertImageToPNG));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jpeg, FileExtension.png, ConvertImageToPNG));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.bmp, FileExtension.png, ConvertImageToPNG));
             //ConvertorListBuilder.Add(new ConvertorDetails(".png", ".bmp", ConvertImageToBMP));
             //ConvertorListBuilder.Add(new ConvertorDetails(".gif", ".bmp", ConvertImageToBMP));
             //ConvertorListBuilder.Add(new ConvertorDetails(".jpg", ".bmp", ConvertImageToBMP));

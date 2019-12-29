@@ -1,3 +1,5 @@
+using FileConvert.Core.Entities;
+using FileConvert.Core.ValueObjects;
 using FileConvert.Infrastructure;
 using System;
 using System.IO;
@@ -25,7 +27,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.True(result.Count != 0);
             Assert.True(result.Count == 2);
-            Assert.Contains(result, a => a.ConvertedExtension == conversionAvailable);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
         [Fact]
@@ -76,8 +78,8 @@ namespace FileConvert.UnitTests
             MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
 
             var AvailableConvertor = conversionService.GetAllAvailableConvertors()
-                                        .ThatConvertFrom(".png")
-                                        .ThatConvertTo(".jpg")
+                                        .ThatConvertFrom(FileExtension.png)
+                                        .ThatConvertTo(FileExtension.jpg)
                                         .FirstOrDefault();
 
             //Act
@@ -94,8 +96,8 @@ namespace FileConvert.UnitTests
             MemoryStream gifStream = ConvertFileToMemoryStream("Documents/sample.gif");
 
             var AvailableConvertor = conversionService.GetAllAvailableConvertors()
-                                        .ThatConvertFrom(".gif")
-                                        .ThatConvertTo(".jpg")
+                                        .ThatConvertFrom(FileExtension.gif)
+                                        .ThatConvertTo(FileExtension.jpg)
                                         .FirstOrDefault();
 
             //Act

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FileConvert.Core.ValueObjects;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -8,11 +9,11 @@ namespace FileConvert.Core.Entities
 {
     public class ConvertorDetails
     {
-        public string ExtensionToConvert { get;}
-        public string ConvertedExtension { get;}
+        public FileExtension ExtensionToConvert { get;}
+        public FileExtension ConvertedExtension { get;}
         public Func<MemoryStream, Task<MemoryStream>> Convert { get;}
 
-        public ConvertorDetails(string ExtensionToConvert, string ConvertedExtension, Func<MemoryStream, Task<MemoryStream>> Convertor)
+        public ConvertorDetails(FileExtension ExtensionToConvert, FileExtension ConvertedExtension, Func<MemoryStream, Task<MemoryStream>> Convertor)
         {
             this.ExtensionToConvert = ExtensionToConvert;
             this.ConvertedExtension = ConvertedExtension;

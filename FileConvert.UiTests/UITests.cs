@@ -1,3 +1,4 @@
+using FileConvert.Core.ValueObjects;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using System;
@@ -78,7 +79,7 @@ namespace FileConvert.UiTests
             //Assert
             Assert.NotNull(conversionSelection);
             Assert.NotEmpty(conversionSelection);
-            Assert.Equal(".html", htmlOption);
+            Assert.Equal(FileExtension.html, htmlOption);
         }
 
         [Fact]
