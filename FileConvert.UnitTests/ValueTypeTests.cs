@@ -6,7 +6,7 @@ namespace FileConvert.UnitTests
     public class ValueTypeTests
     {
         [Fact]
-        public void TestFileExtensionEquality()
+        public void TestFileExtensionType()
         {
             //arrange
             var gifExt = FileExtension.gif;

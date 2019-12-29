@@ -179,6 +179,60 @@ namespace FileConvert.UnitTests
             Assert.True(IsImageFormatCorrect(result, ImageFormat.Gif));
         }
 
+        [Fact]
+        public async Task TestConvertingBMPToGIF()
+        {
+            //Arrange
+            MemoryStream imageStream = ConvertFileToMemoryStream("Documents/example.bmp");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.bmp)
+                                        .ThatConvertTo(FileExtension.gif)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(imageStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, ImageFormat.Gif));
+        }
+
+        [Fact]
+        public async Task TestConvertingBMPToJPG()
+        {
+            //Arrange
+            MemoryStream imageStream = ConvertFileToMemoryStream("Documents/example.bmp");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.bmp)
+                                        .ThatConvertTo(FileExtension.jpg)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(imageStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, ImageFormat.Jpeg));
+        }
+
+        [Fact]
+        public async Task TestConvertingBMPToPNG()
+        {
+            //Arrange
+            MemoryStream imageStream = ConvertFileToMemoryStream("Documents/example.bmp");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.bmp)
+                                        .ThatConvertTo(FileExtension.png)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(imageStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, ImageFormat.Png));
+        }
+
         #region Helper Methods
 
         private static MemoryStream ConvertFileToMemoryStream(String FileName)
