@@ -1,6 +1,7 @@
 using FileConvert.Core.ValueObjects;
 using FileConvert.Infrastructure;
 using System;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -85,7 +86,7 @@ namespace FileConvert.UnitTests
             var result = await AvailableConvertor.Convert(pngStream);
 
             //Assert
-            Assert.True(IsJpegImage(result));
+            Assert.True(IsImageFormatCorrect(result, ImageFormat.Jpeg));
         }
 
         [Fact]
@@ -103,7 +104,7 @@ namespace FileConvert.UnitTests
             var result = await AvailableConvertor.Convert(pngStream);
 
             //Assert
-            Assert.True(IsGifImage(result));
+            Assert.True(IsImageFormatCorrect(result, ImageFormat.Gif));
         }
 
         [Fact]
@@ -121,8 +122,64 @@ namespace FileConvert.UnitTests
             var result = await AvailableConvertor.Convert(gifStream);
 
             //Assert
-            Assert.True(IsJpegImage(result));
+            Assert.True(IsImageFormatCorrect(result, ImageFormat.Jpeg));
         }
+
+        [Fact]
+        public async Task TestConvertingGIFToPNG()
+        {
+            //Arrange
+            MemoryStream imageStream = ConvertFileToMemoryStream("Documents/sample.gif");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.gif)
+                                        .ThatConvertTo(FileExtension.png)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(imageStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, ImageFormat.Png));
+        }
+
+        [Fact]
+        public async Task TestConvertingJPGToPNG()
+        {
+            //Arrange
+            MemoryStream imageStream = ConvertFileToMemoryStream("Documents/example.jpg");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.jpg)
+                                        .ThatConvertTo(FileExtension.png)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(imageStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, ImageFormat.Png));
+        }
+
+        [Fact]
+        public async Task TestConvertingJPGToGIF()
+        {
+            //Arrange
+            MemoryStream imageStream = ConvertFileToMemoryStream("Documents/example.jpg");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.jpg)
+                                        .ThatConvertTo(FileExtension.gif)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(imageStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, ImageFormat.Gif));
+        }
+
+        #region Helper Methods
 
         private static MemoryStream ConvertFileToMemoryStream(String FileName)
         {
@@ -139,7 +196,7 @@ namespace FileConvert.UnitTests
             return convertedStream;
         }
 
-        static bool IsGifImage(MemoryStream gif)
+        static bool IsImageFormatCorrect(MemoryStream gif, ImageFormat format)
         {
             try
             {
@@ -148,7 +205,7 @@ namespace FileConvert.UnitTests
                     // Two image formats can be compared using the Equals method
                     // See http://msdn.microsoft.com/en-us/library/system.drawing.imaging.imageformat.aspx
                     //
-                    return img.RawFormat.Equals(System.Drawing.Imaging.ImageFormat.Gif);
+                    return img.RawFormat.Equals(format);
                 }
             }
             catch (OutOfMemoryException)
@@ -160,27 +217,7 @@ namespace FileConvert.UnitTests
                 return false;
             }
         }
-
-        static bool IsJpegImage(MemoryStream jpg)
-        {
-            try
-            {
-                using (System.Drawing.Image img = System.Drawing.Image.FromStream(jpg))
-                {
-                    // Two image formats can be compared using the Equals method
-                    // See http://msdn.microsoft.com/en-us/library/system.drawing.imaging.imageformat.aspx
-                    //
-                    return img.RawFormat.Equals(System.Drawing.Imaging.ImageFormat.Jpeg);
-                }
-            }
-            catch (OutOfMemoryException)
-            {
-                // Image.FromFile throws an OutOfMemoryException 
-                // if the file does not have a valid image format or
-                // GDI+ does not support the pixel format of the file.
-                //
-                return false;
-            }
-        }
+        
+        #endregion Helper Methods
     }
 }
