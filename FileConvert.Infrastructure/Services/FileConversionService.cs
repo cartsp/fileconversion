@@ -29,7 +29,7 @@ namespace FileConvert.Infrastructure
         {
             var ConvertorListBuilder = ImmutableList.CreateBuilder<ConvertorDetails>(); // returns ImmutableList.Builder
             
-            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.xls, ConvertCSVToExcel));
+            //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.xls, ConvertCSVToExcel));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.xlsx, ConvertCSVToExcel));
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.docx, FileExtension.html, ConvertDocToHTML));
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.mp3, FileExtension.wav, ConvertMP3ToWav));
@@ -135,11 +135,9 @@ namespace FileConvert.Infrastructure
 
         public async Task<MemoryStream> ConvertCSVToExcel(MemoryStream CSVStream)
         {
-            //set the formatting options
             ExcelTextFormat format = new ExcelTextFormat();
             format.Delimiter = ',';
             format.Encoding = new UTF8Encoding();
-            format.TextQualifier = '"';
             format.EOL = "\n";
 
             var csvFile= Encoding.ASCII.GetString(CSVStream.ToArray());

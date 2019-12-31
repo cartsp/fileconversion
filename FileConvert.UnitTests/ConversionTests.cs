@@ -1,5 +1,6 @@
 using FileConvert.Core.ValueObjects;
 using FileConvert.Infrastructure;
+using OfficeOpenXml;
 using System;
 using System.Drawing.Imaging;
 using System.IO;
@@ -42,7 +43,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(16, result.Count);
+            Assert.Equal(15, result.Count);
         }
 
         [Fact]
@@ -58,17 +59,26 @@ namespace FileConvert.UnitTests
             Assert.IsType<MemoryStream>(result);
         }
 
-        [Fact]
-        public async Task TestConvertingCSVToExcelReturnsStream()
+        [Theory]
+        [InlineData("Documents/Untitled 1.csv", "hi")]
+        [InlineData("Documents/addresses.csv", "John")]
+        [InlineData("Documents/cities.csv", "\"LatD\"")]
+        public async Task TestConvertingCSVToXLXS(string documentToTest, string expectedValue)
         {
             //Arrange
-            var officeDocStream = ConvertFileToMemoryStream("Documents/Untitled 1.csv");
+            var officeDocStream = ConvertFileToMemoryStream(documentToTest);
 
             //Act
             var result = await conversionService.ConvertCSVToExcel(officeDocStream);
+            string foundValueInA1;
+            
+            using (ExcelPackage package = new ExcelPackage(result))
+            {
+                foundValueInA1 = package.Workbook.Worksheets[0].Cells[1, 1].Value.ToString();
+            }
 
             //Assert
-            Assert.IsType<MemoryStream>(result);
+            Assert.Equal(expectedValue, foundValueInA1);
         }
 
         #region Image tests

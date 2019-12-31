@@ -69,7 +69,7 @@ namespace FileConvert.UiTests
             var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
             var uploadElement = wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementExists(By.Id("file-1")));
             
-            var filepath = Directory.GetCurrentDirectory() + $"{Path.DirectorySeparatorChar}Documents{Path.DirectorySeparatorChar}Test Document.docx";
+            var filepath = Directory.GetCurrentDirectory() + $"{Path.DirectorySeparatorChar}Documents{Path.DirectorySeparatorChar}cities.csv";
             uploadElement.SendKeys(filepath);
 
             wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementExists(By.ClassName("conversion-choices")));
@@ -79,7 +79,7 @@ namespace FileConvert.UiTests
             //Assert
             Assert.NotNull(conversionSelection);
             Assert.NotEmpty(conversionSelection);
-            Assert.Equal(FileExtension.html, htmlOption);
+            Assert.Equal(FileExtension.xlsx, htmlOption);
         }
 
         [Fact]
