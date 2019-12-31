@@ -32,6 +32,7 @@ namespace FileConvert.Infrastructure
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.xls, ConvertCSVToExcel));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.xlsx, ConvertCSVToExcel));
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.docx, FileExtension.html, ConvertDocToHTML));
+            //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.docx, FileExtension.pdf, ConvertDocToPDF));
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.mp3, FileExtension.wav, ConvertMP3ToWav));
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tif, FileExtension.png, ConverTifToPNG));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.png, FileExtension.jpg, ConvertImageTojpg));
@@ -59,8 +60,24 @@ namespace FileConvert.Infrastructure
         public async Task<MemoryStream> ConvertDocToHTML(MemoryStream officeDocStream)
         {
             return await Task.FromResult(officeDocStream).ConfigureAwait(true);
-        }   
-        
+        }
+
+        //WASM: System.PlatformNotSupportedException: Operation is not supported on this platform.
+        //public async Task<MemoryStream> ConvertDocToPDF(MemoryStream officeDocStream)
+        //{
+        //    var pdfStream = new MemoryStream();
+
+        //    Xceed.Words.NET.Licenser.LicenseKey = "WDN16-Y1WWB-KK8FY-DX8A";
+        //    using (pdfStream)
+        //    {
+        //        using (var wordDoc = Xceed.Words.NET.DocX.Load(officeDocStream))
+        //        {
+        //            Xceed.Words.NET.DocX.ConvertToPdf(wordDoc, pdfStream);
+        //        }
+        //        return await Task.FromResult(pdfStream).ConfigureAwait(true);
+        //    }
+        //}   
+
         public async Task<MemoryStream> ConvertImageTojpg(MemoryStream PNGStream)
         {
             MemoryStream outputStream = new MemoryStream();
