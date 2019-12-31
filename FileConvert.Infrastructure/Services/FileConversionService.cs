@@ -11,6 +11,8 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using FileConvert.Core.ValueObjects;
+using System.Globalization;
+using System.Threading;
 
 namespace FileConvert.Infrastructure
 {
@@ -133,13 +135,20 @@ namespace FileConvert.Infrastructure
 
         public async Task<MemoryStream> ConvertCSVToExcel(MemoryStream CSVStream)
         {
+            //set the formatting options
+            ExcelTextFormat format = new ExcelTextFormat();
+            format.Delimiter = ',';
+            format.Encoding = new UTF8Encoding();
+            format.TextQualifier = '"';
+            format.EOL = "\n";
+
             var csvFile= Encoding.ASCII.GetString(CSVStream.ToArray());
 
             using (var package = new ExcelPackage())
             {
                 var worksheet = package.Workbook.Worksheets.Add("Sheet1");
 
-                worksheet.Cells["A1"].LoadFromText(csvFile, null);
+                worksheet.Cells["A1"].LoadFromText(csvFile, format);
 
                 return await Task.FromResult(new MemoryStream(package.GetAsByteArray())).ConfigureAwait(true);
             }
