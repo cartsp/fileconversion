@@ -1,6 +1,6 @@
 #Requires -Module 7Zip4PowerShell
 
-$filePath = 'FileConvert\bin\Release\netstandard2.1\publish\FileConvert\dist'
+$filePath = 'FileConvert\bin\Release\netstandard2.1\publish\wwwroot'
 cd $filePath
 
 $files = Get-ChildItem  -recurse -filter *.*
