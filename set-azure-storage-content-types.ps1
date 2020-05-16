@@ -6,7 +6,7 @@ $StorageAccountName = "fileconversiontools"
 <#
 $StorageAccountKey = "5LMlKtgZh/lmzyEVM+GzWQ6WDHtvRUCZBP67WqJgokd5q71AK2UMDday5Lvu9UAQkQjELH141com5EeRvFLJSg==" 
 #>
-$StorageAccountKey = "rgYcOvyRUc7uMn/xwZUsrJ/bDnp49EjzgicI/bgnf2XL9LFenHEger6VhqaRboz/9a1KtbgYu7zXSdfJgXuOeQ==" 
+$StorageAccountKey = "ywQ6NZ67vWsJZ0Nn1J8QTs3a8HHcwGGVYdIrivMYsOLcmQqRRrGM8wvA2lX+cRF5FdWx2joXkUS42AEId4A9DQ==" 
 $ContainerName = "`$web"
 
 $Context = New-AzStorageContext -StorageAccountName $StorageAccountName -StorageAccountKey $StorageAccountKey
