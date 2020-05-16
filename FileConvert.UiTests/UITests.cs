@@ -29,7 +29,7 @@ namespace FileConvert.UiTests
             var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
 
             //Assert
-            Assert.Equal("File Conversion Tools", PageTitle);
+            Assert.Equal("Browser Based File Conversion Tools", PageTitle);
         }
 
         [Fact]
