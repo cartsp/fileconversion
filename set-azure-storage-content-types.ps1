@@ -3,7 +3,10 @@ If(-not(Get-InstalledModule -Name Az -ErrorAction silentlycontinue)){
 }
 
 $StorageAccountName = "fileconversiontools"
+<#
 $StorageAccountKey = "5LMlKtgZh/lmzyEVM+GzWQ6WDHtvRUCZBP67WqJgokd5q71AK2UMDday5Lvu9UAQkQjELH141com5EeRvFLJSg==" 
+#>
+$StorageAccountKey = "rgYcOvyRUc7uMn/xwZUsrJ/bDnp49EjzgicI/bgnf2XL9LFenHEger6VhqaRboz/9a1KtbgYu7zXSdfJgXuOeQ==" 
 $ContainerName = "`$web"
 
 $Context = New-AzStorageContext -StorageAccountName $StorageAccountName -StorageAccountKey $StorageAccountKey
