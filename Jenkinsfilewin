@@ -17,7 +17,7 @@ pipeline {
              steps {
 //                bat label: '', script: 'pwsh .\\pre-gzip-for-azure.ps1'
 
-                dir('FileConvert/bin/Release/netstandard2.1/publish/FileConvert/dist/'){
+                dir('FileConvert/bin/Release/netstandard2.1/publish/wwwroot/'){
                     azureUpload blobProperties: [cacheControl: '', contentEncoding: '', contentLanguage: '', contentType: '', detectContentType: true], onlyUploadModifiedArtifacts: true, containerName: '$web', fileShareName: '', filesPath: '**/**', storageCredentialId: 'azure-storage', storageType: 'blobstorage'
                 }
 //                bat label: '', script: 'pwsh .\\set-azure-storage-content-types.ps1'
