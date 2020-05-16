@@ -13,7 +13,7 @@ namespace Infrastruture.Tester
             var conversionService = new FileConversionService();
 
             MemoryStream pngStream = new MemoryStream();
-            var wordDocToConvert = new FileInfo("pnggradHDrgba.png");
+            var wordDocToConvert = new FileInfo("test.pdf");
             //var wordDocToConvert = new FileInfo("addresses.csv");
 
             using (FileStream file = new FileStream(wordDocToConvert.FullName, FileMode.Open, FileAccess.Read))
@@ -22,10 +22,10 @@ namespace Infrastruture.Tester
                 file.Read(bytes, 0, (int)file.Length);
                 pngStream.Write(bytes, 0, (int)file.Length);
                 pngStream.Position = 0;
-                var result = await conversionService.ConvertImageTojpg(pngStream);
+                var result = await conversionService.ConvertPDFToDocx(pngStream);
                 
                 //FileStream jpgfile = new FileStream("file.xls", FileMode.Create, FileAccess.Write);
-                FileStream jpgfile = new FileStream("file.jpg", FileMode.Create, FileAccess.Write);
+                FileStream jpgfile = new FileStream("test.docx", FileMode.Create, FileAccess.Write);
                 result.WriteTo(jpgfile);
                 jpgfile.Close();
                 result.Close();

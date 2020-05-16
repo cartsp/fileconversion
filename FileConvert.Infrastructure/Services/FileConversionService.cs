@@ -49,6 +49,7 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jpg, FileExtension.png, ConvertImageToPNG));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jpeg, FileExtension.png, ConvertImageToPNG));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.bmp, FileExtension.png, ConvertImageToPNG));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.pdf, FileExtension.docx, ConvertPDFToDocx));
             //ConvertorListBuilder.Add(new ConvertorDetails(".png", ".bmp", ConvertImageToBMP));
             //ConvertorListBuilder.Add(new ConvertorDetails(".gif", ".bmp", ConvertImageToBMP));
             //ConvertorListBuilder.Add(new ConvertorDetails(".jpg", ".bmp", ConvertImageToBMP));
@@ -60,6 +61,28 @@ namespace FileConvert.Infrastructure
         public async Task<MemoryStream> ConvertDocToHTML(MemoryStream officeDocStream)
         {
             return await Task.FromResult(officeDocStream).ConfigureAwait(true);
+        }        
+        
+        public async Task<MemoryStream> ConvertPDFToDocx(MemoryStream pdfStream)
+        {
+            pdfStream.Position = 0;
+            SautinSoft.PdfFocus f = new SautinSoft.PdfFocus();
+            //this property is necessary only for registered version
+            //f.Serial = "XXXXXXXXXXX";
+            MemoryStream docxStream = new MemoryStream();
+            // Assume that we already have a PDF document as stream.
+            using (pdfStream)
+            {
+                f.OpenPdf(pdfStream);
+                f.ToWord(docxStream);
+                //if (f.PageCount > 0)
+                //{
+                //    //f.WordOptions.Format = SautinSoft.PdfFocus.CWordOptions.eWordDocument.Docx;
+                //    int res = f.ToWord(docxStream);
+                //}
+            }
+
+            return await Task.FromResult(docxStream).ConfigureAwait(true);
         }
 
         //WASM: System.PlatformNotSupportedException: Operation is not supported on this platform.

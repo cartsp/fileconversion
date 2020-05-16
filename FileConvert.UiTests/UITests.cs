@@ -11,6 +11,7 @@ namespace FileConvert.UiTests
     public class UiTests : IClassFixture<ChromeDriverFixture>
     {
         ChromeDriverFixture fixture;
+        public static readonly string baseURL = "https://devfileconversion.z33.web.core.windows.net/";
 
         public UiTests(ChromeDriverFixture fixture)
         {
@@ -21,7 +22,7 @@ namespace FileConvert.UiTests
         public void TestCanOpenDevSite()
         {
             //Arrange
-            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
+            fixture.driver.Url = baseURL;
 
             //Act
             var PageTitle = fixture.driver.Title;
@@ -35,7 +36,7 @@ namespace FileConvert.UiTests
         public void TestAppStartsUp()
         {
             //Arrange
-            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
+            fixture.driver.Url = baseURL;
 
             //Act
             var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
@@ -49,7 +50,7 @@ namespace FileConvert.UiTests
         public void TestFileControlExists()
         {
             //Arrange
-            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
+            fixture.driver.Url = baseURL;
 
             //Act
             var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
@@ -63,7 +64,7 @@ namespace FileConvert.UiTests
         public void TestAvailableFileConversionAppears()
         {
             //Arrange
-            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
+            fixture.driver.Url = baseURL;
 
             //Act
             var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
@@ -86,7 +87,7 @@ namespace FileConvert.UiTests
         public void TestNoAvailableFileConversionAppears()
         {
             //Arrange
-            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
+            fixture.driver.Url = baseURL;
 
             //Act
             var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
