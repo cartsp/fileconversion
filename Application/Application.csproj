@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MassTransit" Version="6.3.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Common\" />
+    <Folder Include="FileConversion\Commands\" />
+    <Folder Include="FileConversion\CommandHandlers\" />
+    <Folder Include="FileConversion\QueryHandlers\" />
+    <Folder Include="FileConversion\Querys\" />
+  </ItemGroup>
+
+</Project>

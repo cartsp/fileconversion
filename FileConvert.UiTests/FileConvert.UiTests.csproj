@@ -46,7 +46,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\FileConvert.Core\FileConvert.Core.csproj" />
+    <ProjectReference Include="..\FileConvert.Core\Core.csproj" />
   </ItemGroup>
 
 </Project>

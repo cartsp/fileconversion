@@ -5,9 +5,9 @@ VisualStudioVersion = 16.0.29519.181
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileConvert", "FileConvert\FileConvert.csproj", "{086ACF18-15B8-4EA1-9CEE-EEA5CF58DD98}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileConvert.Core", "FileConvert.Core\FileConvert.Core.csproj", "{D1BB28AA-C8EC-4AA8-BE38-F196E49A8D21}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Core", "FileConvert.Core\Core.csproj", "{D1BB28AA-C8EC-4AA8-BE38-F196E49A8D21}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileConvert.Infrastructure", "FileConvert.Infrastructure\FileConvert.Infrastructure.csproj", "{3A5A1BD7-561F-4576-91DD-A8B7E24EBEBF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Infrastructure", "FileConvert.Infrastructure\Infrastructure.csproj", "{3A5A1BD7-561F-4576-91DD-A8B7E24EBEBF}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileConvert.UnitTests", "FileConvert.UnitTests\FileConvert.UnitTests.csproj", "{C0A4F955-C2E1-4790-A8DF-E92706DBAF98}"
 EndProject
@@ -28,6 +28,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Infrastruture.Tester", "Infrastruture.Tester\Infrastruture.Tester.csproj", "{D5F66764-9038-46C9-AC36-4425A880D2FF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Application", "Application\Application.csproj", "{DDC7672C-A729-4A56-BC7D-CBDD1B7C4A23}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -59,6 +61,10 @@ Global
 		{D5F66764-9038-46C9-AC36-4425A880D2FF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D5F66764-9038-46C9-AC36-4425A880D2FF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D5F66764-9038-46C9-AC36-4425A880D2FF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DDC7672C-A729-4A56-BC7D-CBDD1B7C4A23}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DDC7672C-A729-4A56-BC7D-CBDD1B7C4A23}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DDC7672C-A729-4A56-BC7D-CBDD1B7C4A23}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DDC7672C-A729-4A56-BC7D-CBDD1B7C4A23}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

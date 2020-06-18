@@ -55,7 +55,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\FileConvert.Infrastructure\FileConvert.Infrastructure.csproj" />
+    <ProjectReference Include="..\FileConvert.Infrastructure\Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
