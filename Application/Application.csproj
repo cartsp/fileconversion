@@ -13,6 +13,7 @@
     <Folder Include="Common\" />
     <Folder Include="FileConversion\Commands\" />
     <Folder Include="FileConversion\CommandHandlers\" />
+    <Folder Include="FileConversion\Common\" />
     <Folder Include="FileConversion\QueryHandlers\" />
     <Folder Include="FileConversion\Querys\" />
   </ItemGroup>
