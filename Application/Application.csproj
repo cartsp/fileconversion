@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="MassTransit" Version="6.3.2" />
+    <PackageReference Include="System.Collections.Immutable" Version="1.7.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -14,6 +15,10 @@
     <Folder Include="FileConversion\CommandHandlers\" />
     <Folder Include="FileConversion\QueryHandlers\" />
     <Folder Include="FileConversion\Querys\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FileConvert.Core\Core.csproj" />
   </ItemGroup>
 
 </Project>

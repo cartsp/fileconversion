@@ -13,10 +13,11 @@ using SixLabors.ImageSharp.Formats.Jpeg;
 using FileConvert.Core.ValueObjects;
 using System.Globalization;
 using System.Threading;
+using Application.FileConversion.Interfaces;
 
 namespace FileConvert.Infrastructure
 {
-    public class FileConversionService : IFileConvertors
+    public class FileConversionService : IFileConvertor
     {
         static IImmutableList<ConvertorDetails> Convertors;
 

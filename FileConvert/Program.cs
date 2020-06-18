@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using FileConvert.Core;
 using FileConvert.Infrastructure;
+using Application.FileConversion.Interfaces;
 
 namespace FileConvert
 {
@@ -16,7 +17,7 @@ namespace FileConvert
             builder.RootComponents.Add<App>("app");
 
             builder.Services.AddSingleton(new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
-            builder.Services.AddTransient<IFileConvertors, FileConversionService>();
+            builder.Services.AddTransient<IFileConvertor, FileConversionService>();
 
             await builder.Build().RunAsync();
         }

@@ -1,9 +1,9 @@
 ﻿using FileConvert.Core.Entities;
 using System.Collections.Immutable;
 
-namespace FileConvert.Core
+namespace Application.FileConversion.Interfaces
 {
-    public interface IFileConvertors
+    public interface IFileConvertor
     {
         IImmutableList<ConvertorDetails> GetAllAvailableConvertors();
 
