@@ -1,18 +1,23 @@
-﻿using Microsoft.AspNetCore.Blazor.Hosting;
+﻿using FileConvert.Core;
+using FileConvert.Infrastructure;
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace FileConvert
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
-            CreateHostBuilder(args).Build().Run();
-        }
+            var builder = WebAssemblyHostBuilder.CreateDefault(args);
+            builder.RootComponents.Add<App>("#app");
+            builder.Services.AddTransient<IFileConvertors, FileConversionService>();
+            builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 
-#pragma warning disable CA1801 // Remove unused parameter
-        public static IWebAssemblyHostBuilder CreateHostBuilder(string[] args) =>
-#pragma warning restore CA1801 // Remove unused parameter
-            BlazorWebAssemblyHost.CreateDefaultBuilder()
-                .UseBlazorStartup<Startup>();
+            await builder.Build().RunAsync();
+        }
     }
 }

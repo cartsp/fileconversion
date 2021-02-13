@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>File Conversion Tools</title>
     <base href="/" />
     <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
@@ -11,7 +11,7 @@
 </head>
 
 <body class="text-center">
-    <app class="app-container">
+    <app id="app" class="app-container">
         <div class="splash-loading">
             <div class="cssload-box-loading"></div>
             <h1 class="loading-text"><span class="pulsate">LOADING...</span></h1>
@@ -26,7 +26,8 @@
         <a class="dismiss">🗙</a>
     </div>
     <script src="_framework/blazor.webassembly.js"></script>
-    <script src="lib/inputfile.js"></script>
+
+    <script>navigator.serviceWorker.register('service-worker.js');</script>
     <script src="lib/saveAsFile.js"></script>
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-12777850-3"></script>
