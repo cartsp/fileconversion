@@ -9,6 +9,7 @@
         public static FileExtension gif { get { return new FileExtension(".gif"); } }
         public static FileExtension jpg { get { return new FileExtension(".jpg"); } }
         public static FileExtension jpeg { get { return new FileExtension(".jpeg"); } }
+        public static FileExtension jfif { get { return new FileExtension(".jfif"); } }
         public static FileExtension png { get { return new FileExtension(".png"); } }
         public static FileExtension bmp { get { return new FileExtension(".bmp"); } }
         public static FileExtension docx { get { return new FileExtension(".docx"); } }

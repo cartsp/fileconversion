@@ -74,7 +74,6 @@
 @code {
     //With inspiration from Maria!
     string FileName;
-    bool DoubleBuffer = true;
     bool Converting = false;
     IImmutableList<Core.Entities.ConvertorDetails> chosenConvertors;
     MemoryStream memoryStreamToConvert;
@@ -96,8 +95,6 @@
             await file.OpenReadStream(104857600).CopyToAsync(memoryStreamToConvert);
             FileName = file.Name;
         }
-
-        DoubleBuffer = !DoubleBuffer;
     }
 
     protected async Task ConvertFileAndSave(string ExtensionToConvert, MemoryStream MemoryStreamToConvert)
