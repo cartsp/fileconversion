@@ -17,6 +17,7 @@ pipeline {
              steps {
                 dir('FileConvert/bin/Release/net5.0/publish/wwwroot/'){
                     azureUpload blobProperties: [cacheControl: '', contentEncoding: '', contentLanguage: '', contentType: '', detectContentType: true], onlyUploadModifiedArtifacts: false, containerName: '$web', fileShareName: '', filesPath: '**/**', storageCredentialId: 'azure-storage-master', storageType: 'blobstorage'
+                    bat label: '', script: 'pwsh .\\purge-cdn-content.ps1'
                 }
             }
         } 
