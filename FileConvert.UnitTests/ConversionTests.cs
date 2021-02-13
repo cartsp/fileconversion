@@ -14,7 +14,6 @@ namespace FileConvert.UnitTests
     {
         public static FileConversionService conversionService = new FileConversionService();
         [Theory]
-        [InlineData(".xls")]
         [InlineData(".xlsx")]
         public void TestAvailableConversionsForCSV(string conversionAvailable)
         {
@@ -27,7 +26,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 2);
+            Assert.True(result.Count == 1);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
