@@ -93,7 +93,7 @@
         {
             memoryStreamToConvert = new MemoryStream();
             chosenConvertors = FileConversionService.GetConvertorsForFile(System.IO.Path.GetExtension(file.Name).ToLower()).ToImmutableList();
-            await file.OpenReadStream(512000).CopyToAsync(memoryStreamToConvert);
+            await file.OpenReadStream(104857600).CopyToAsync(memoryStreamToConvert);
             FileName = file.Name;
         }
 
