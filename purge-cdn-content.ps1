@@ -1,5 +1,3 @@
-Set-Location '\'
-
 #purge cdn after deployment
 $ResourceGroup = 'fileconversion'
 $EndpointName = 'fileconversiontools'
