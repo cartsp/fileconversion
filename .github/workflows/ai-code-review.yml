@@ -25,11 +25,10 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Checkout PR
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || format('refs/pull/{0}/head', github.event.inputs.pr-number) }}
 
       - name: Z AI Code Review
         id: review
