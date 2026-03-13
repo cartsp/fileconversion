@@ -30,6 +30,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install action dependencies
+        run: cd .github/actions/zai-code-review && npm ci
+
       - name: Z AI Code Review
         id: review
         uses: ./.github/actions/zai-code-review
