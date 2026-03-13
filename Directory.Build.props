@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <!-- Nullable and strict warnings can be enabled incrementally -->
+    <!-- <Nullable>enable</Nullable> -->
+    <!-- <TreatWarningsAsErrors>true</TreatWarningsAsErrors> -->
+    <!-- <ImplicitUsings>enable</ImplicitUsings> -->
+  </PropertyGroup>
+</Project>

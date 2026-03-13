@@ -1,4 +1,4 @@
-﻿namespace FileConvert.Core.ValueObjects
+namespace FileConvert.Core.ValueObjects
 {
     public class FileExtension
     {

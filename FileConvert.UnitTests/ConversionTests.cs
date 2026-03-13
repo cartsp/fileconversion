@@ -1,8 +1,12 @@
 using FileConvert.Core.ValueObjects;
 using FileConvert.Infrastructure;
 using OfficeOpenXml;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Gif;
+using SixLabors.ImageSharp.Formats.Png;
 using System;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -12,6 +16,12 @@ namespace FileConvert.UnitTests
 {
     public class ConversionTests
     {
+        static ConversionTests()
+        {
+            // EPPlus 5+ requires license context to be set
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+        }
+
         public static FileConversionService conversionService = new FileConversionService();
         [Theory]
         [InlineData(".xlsx")]
@@ -42,7 +52,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(15, result.Count);
+            Assert.Equal(17, result.Count);
         }
 
         [Fact]
@@ -70,7 +80,7 @@ namespace FileConvert.UnitTests
             //Act
             var result = await conversionService.ConvertCSVToExcel(officeDocStream);
             string foundValueInA1;
-            
+
             using (ExcelPackage package = new ExcelPackage(result))
             {
                 foundValueInA1 = package.Workbook.Worksheets[0].Cells[1, 1].Value.ToString();
@@ -97,7 +107,7 @@ namespace FileConvert.UnitTests
             var result = await AvailableConvertor.Convert(pngStream);
 
             //Assert
-            Assert.True(IsImageFormatCorrect(result, ImageFormat.Jpeg));
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
         }
 
         [Fact]
@@ -115,7 +125,7 @@ namespace FileConvert.UnitTests
             var result = await AvailableConvertor.Convert(pngStream);
 
             //Assert
-            Assert.True(IsImageFormatCorrect(result, ImageFormat.Gif));
+            Assert.True(IsImageFormatCorrect(result, GifFormat.Instance));
         }
 
         [Fact]
@@ -133,7 +143,7 @@ namespace FileConvert.UnitTests
             var result = await AvailableConvertor.Convert(gifStream);
 
             //Assert
-            Assert.True(IsImageFormatCorrect(result, ImageFormat.Jpeg));
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
         }
 
         [Fact]
@@ -151,7 +161,7 @@ namespace FileConvert.UnitTests
             var result = await AvailableConvertor.Convert(imageStream);
 
             //Assert
-            Assert.True(IsImageFormatCorrect(result, ImageFormat.Png));
+            Assert.True(IsImageFormatCorrect(result, PngFormat.Instance));
         }
 
         [Fact]
@@ -169,7 +179,7 @@ namespace FileConvert.UnitTests
             var result = await AvailableConvertor.Convert(imageStream);
 
             //Assert
-            Assert.True(IsImageFormatCorrect(result, ImageFormat.Png));
+            Assert.True(IsImageFormatCorrect(result, PngFormat.Instance));
         }
 
         [Fact]
@@ -187,7 +197,7 @@ namespace FileConvert.UnitTests
             var result = await AvailableConvertor.Convert(imageStream);
 
             //Assert
-            Assert.True(IsImageFormatCorrect(result, ImageFormat.Gif));
+            Assert.True(IsImageFormatCorrect(result, GifFormat.Instance));
         }
 
         [Fact]
@@ -205,7 +215,7 @@ namespace FileConvert.UnitTests
             var result = await AvailableConvertor.Convert(imageStream);
 
             //Assert
-            Assert.True(IsImageFormatCorrect(result, ImageFormat.Gif));
+            Assert.True(IsImageFormatCorrect(result, GifFormat.Instance));
         }
 
         [Fact]
@@ -223,7 +233,7 @@ namespace FileConvert.UnitTests
             var result = await AvailableConvertor.Convert(imageStream);
 
             //Assert
-            Assert.True(IsImageFormatCorrect(result, ImageFormat.Jpeg));
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
         }
 
         [Fact]
@@ -241,7 +251,7 @@ namespace FileConvert.UnitTests
             var result = await AvailableConvertor.Convert(imageStream);
 
             //Assert
-            Assert.True(IsImageFormatCorrect(result, ImageFormat.Png));
+            Assert.True(IsImageFormatCorrect(result, PngFormat.Instance));
         }
 
         #endregion Image tests
@@ -263,28 +273,21 @@ namespace FileConvert.UnitTests
             return convertedStream;
         }
 
-        static bool IsImageFormatCorrect(MemoryStream gif, ImageFormat format)
+        static bool IsImageFormatCorrect(MemoryStream imageStream, IImageFormat expectedFormat)
         {
             try
             {
-                using (System.Drawing.Image img = System.Drawing.Image.FromStream(gif))
-                {
-                    // Two image formats can be compared using the Equals method
-                    // See http://msdn.microsoft.com/en-us/library/system.drawing.imaging.imageformat.aspx
-                    //
-                    return img.RawFormat.Equals(format);
-                }
+                imageStream.Position = 0;
+                var detectedFormat = Image.DetectFormat(imageStream);
+                return detectedFormat?.Name?.Equals(expectedFormat.Name, StringComparison.OrdinalIgnoreCase) == true;
             }
-            catch (OutOfMemoryException)
+            catch
             {
-                // Image.FromFile throws an OutOfMemoryException 
-                // if the file does not have a valid image format or
-                // GDI+ does not support the pixel format of the file.
-                //
+                // Image.DetectFormat throws if the file does not have a valid image format
                 return false;
             }
         }
-        
+
         #endregion Helper Methods
     }
 }

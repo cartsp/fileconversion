@@ -1,24 +1,27 @@
-﻿using FileConvert.Core;
+using FileConvert.Core;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using System.Collections.Immutable;
 using System.Linq;
 using FileConvert.Core.Entities;
-//using NAudio.Wave;
 using OfficeOpenXml;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using FileConvert.Core.ValueObjects;
 using System.Globalization;
-using System.Threading;
 
 namespace FileConvert.Infrastructure
 {
     public class FileConversionService : IFileConvertors
     {
-        static IImmutableList<ConvertorDetails> Convertors;
+        static IImmutableList<ConvertorDetails> Convertors = ImmutableList<ConvertorDetails>.Empty;
+
+        static FileConversionService()
+        {
+            // EPPlus 5+ requires license context to be set
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+        }
 
         public FileConversionService()
         {
@@ -28,7 +31,7 @@ namespace FileConvert.Infrastructure
         public void CreateConvertorList()
         {
             var ConvertorListBuilder = ImmutableList.CreateBuilder<ConvertorDetails>(); // returns ImmutableList.Builder
-            
+
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.xls, ConvertCSVToExcel));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.xlsx, ConvertCSVToExcel));
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.docx, FileExtension.html, ConvertDocToHTML));
@@ -55,13 +58,13 @@ namespace FileConvert.Infrastructure
             //ConvertorListBuilder.Add(new ConvertorDetails(".gif", ".bmp", ConvertImageToBMP));
             //ConvertorListBuilder.Add(new ConvertorDetails(".jpg", ".bmp", ConvertImageToBMP));
             //ConvertorListBuilder.Add(new ConvertorDetails(".jpeg", ".bmp", ConvertImageToBMP));
-            
+
             Convertors = ConvertorListBuilder.ToImmutable();
         }
 
         public async Task<MemoryStream> ConvertDocToHTML(MemoryStream officeDocStream)
         {
-            return await Task.FromResult(officeDocStream).ConfigureAwait(true);
+            return await Task.FromResult(officeDocStream);
         }
 
         //WASM: System.PlatformNotSupportedException: Operation is not supported on this platform.
@@ -76,39 +79,39 @@ namespace FileConvert.Infrastructure
         //        {
         //            Xceed.Words.NET.DocX.ConvertToPdf(wordDoc, pdfStream);
         //        }
-        //        return await Task.FromResult(pdfStream).ConfigureAwait(true);
+        //        return await Task.FromResult(pdfStream);
         //    }
-        //}   
+        //}
 
         public async Task<MemoryStream> ConvertImageTojpg(MemoryStream PNGStream)
         {
             MemoryStream outputStream = new MemoryStream();
 
-            using (Image<Rgba32> image = Image.Load<Rgba32>(PNGStream.ToArray()))
+            using (Image image = Image.Load(PNGStream.ToArray()))
             {
                 image.SaveAsJpeg(outputStream, new JpegEncoder() { Quality = 80 });
             }
 
-            return await Task.FromResult(outputStream).ConfigureAwait(true);
+            return await Task.FromResult(outputStream);
         }
 
         public async Task<MemoryStream> ConvertImageToPNG(MemoryStream ImageStream)
         {
             MemoryStream outputStream = new MemoryStream();
 
-            using (Image<Rgba32> image = Image.Load<Rgba32>(ImageStream.ToArray()))
+            using (Image image = Image.Load(ImageStream.ToArray()))
             {
                 image.SaveAsPng(outputStream);
             }
 
-            return await Task.FromResult(outputStream).ConfigureAwait(true);
+            return await Task.FromResult(outputStream);
         }
 
         //public async Task<MemoryStream> ConvertImageToBMP(MemoryStream PNGStream)
         //{
         //    MemoryStream outputStream = new MemoryStream();
 
-        //    using (Image<Rgba32> image = Image.Load<Rgba32>(PNGStream.ToArray()))
+        //    using (Image image = Image.Load(PNGStream.ToArray()))
         //    {
         //        image.SaveAsBmp(outputStream);
         //    }
@@ -120,12 +123,12 @@ namespace FileConvert.Infrastructure
         {
             MemoryStream outputStream = new MemoryStream();
 
-            using (Image<Rgba32> image = Image.Load<Rgba32>(ImageStream.ToArray()))
+            using (Image image = Image.Load(ImageStream.ToArray()))
             {
                 image.SaveAsGif(outputStream);
             }
 
-            return await Task.FromResult(outputStream).ConfigureAwait(true);
+            return await Task.FromResult(outputStream);
         }
 
 
@@ -140,16 +143,16 @@ namespace FileConvert.Infrastructure
             //    return memoryStream;
             //}
             var msPNG = new MemoryStream();
-            
-            return await Task.FromResult(msPNG).ConfigureAwait(true);
+
+            return await Task.FromResult(msPNG);
         }
 
         public async Task<MemoryStream> ConvertMP3ToWav(MemoryStream MP3Stream)
         {
             MemoryStream ConvertedWaveStream = new MemoryStream();
 
-            
-            return await Task.FromResult(ConvertedWaveStream).ConfigureAwait(true);
+
+            return await Task.FromResult(ConvertedWaveStream);
         }
 
         public async Task<MemoryStream> ConvertCSVToExcel(MemoryStream CSVStream)
@@ -167,7 +170,7 @@ namespace FileConvert.Infrastructure
 
                 worksheet.Cells["A1"].LoadFromText(csvFile, format);
 
-                return await Task.FromResult(new MemoryStream(package.GetAsByteArray())).ConfigureAwait(true);
+                return await Task.FromResult(new MemoryStream(package.GetAsByteArray()));
             }
         }
         public IImmutableList<ConvertorDetails> GetConvertorsForFile(string inputFileName)
