@@ -33,7 +33,14 @@ jobs:
           dotnet tool install --global Microsoft.Playwright.CLI
           playwright install chromium
 
+      - name: Start Blazor app
+        run: |
+          cd FileConvert
+          dotnet run --configuration Release --urls "http://localhost:5000" &
+          sleep 15
+          curl --retry 10 --retry-delay 2 --retry-connrefused http://localhost:5000 > /dev/null
+
       - name: Run UI tests
         run: dotnet test FileConvert.UiTests --configuration Release --no-build --verbosity normal
         env:
-          TEST_URL: https://devfileconversion.z33.web.core.windows.net/
+          TEST_URL: http://localhost:5000
