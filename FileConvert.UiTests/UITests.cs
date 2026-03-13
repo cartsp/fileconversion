@@ -68,10 +68,10 @@ namespace FileConvert.UiTests
             // Act - wait for the conversion choice to be attached (it's an option in a select, may not be visible)
             await _fixture.Page.WaitForSelectorAsync(".conversion-choices", new() { Timeout = 60000, State = WaitForSelectorState.Attached });
             var conversionSelections = await _fixture.Page.QuerySelectorAllAsync(".conversion-choices");
-            var htmlOption = await conversionSelections[0].TextContentAsync();
 
             // Assert
             Assert.NotEmpty(conversionSelections);
+            var htmlOption = await conversionSelections[0].TextContentAsync();
             Assert.Equal(FileExtension.xlsx, htmlOption);
         }
 
