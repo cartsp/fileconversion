@@ -1,0 +1,17 @@
+{
+  "name": "zai-code-review-action",
+  "version": "1.0.0",
+  "description": "AI-powered code review using Z AI GLM-5 model",
+  "main": "index.js",
+  "scripts": {
+    "test": "node -e \"console.log('Action loaded successfully')\""
+  },
+  "dependencies": {
+    "@actions/core": "^1.10.1",
+    "@actions/github": "^6.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}

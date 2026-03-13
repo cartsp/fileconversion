@@ -1,0 +1,61 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr-number:
+        description: 'Pull request number to review'
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  checks: write
+
+env:
+  PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr-number }}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || format('refs/pull/{0}/head', github.event.inputs.pr-number) }}
+
+      - name: Z AI Code Review
+        id: review
+        uses: ./.github/actions/zai-code-review
+        with:
+          zai-api-key: ${{ secrets.ZAI_API_KEY }}
+          pr-number: ${{ github.event.inputs.pr-number }}
+          zai-model: 'GLM-5'
+          review-type: 'full'
+          severity-threshold: 'low'
+          max-comments: '25'
+          fail-on-severity: 'critical'
+          exclude-patterns: '**/*.lock,**/dist/**,**/node_modules/**,**/*.min.js,**/package-lock.json,**/yarn.lock'
+          focus-areas: 'security,performance,readability'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Review Summary
+        if: always()
+        run: |
+          echo "## Code Review Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🚨 Critical | ${{ steps.review.outputs.critical-count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔴 High | ${{ steps.review.outputs.high-count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟠 Medium | ${{ steps.review.outputs.medium-count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟡 Low | ${{ steps.review.outputs.low-count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| ℹ️ Info | ${{ steps.review.outputs.info-count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Total** | **${{ steps.review.outputs.issues-found }}** |" >> $GITHUB_STEP_SUMMARY

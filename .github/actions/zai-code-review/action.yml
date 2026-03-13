@@ -1,0 +1,76 @@
+name: 'Z AI Code Review'
+description: 'AI-powered code review using Z AI GLM-5 model with severity-based analysis'
+author: 'Z AI'
+
+branding:
+  icon: 'eye'
+  color: 'purple'
+
+inputs:
+  zai-api-key:
+    description: 'Z AI API key for authentication'
+    required: true
+  pr-number:
+    description: 'Pull request number (for manual triggers)'
+    required: false
+    default: ''
+  zai-model:
+    description: 'Z AI model to use for code review'
+    required: false
+    default: 'GLM-5'
+  review-type:
+    description: 'Type of review: full, security, performance, style'
+    required: false
+    default: 'full'
+  severity-threshold:
+    description: 'Minimum severity level to report (critical, high, medium, low, info)'
+    required: false
+    default: 'low'
+  max-comments:
+    description: 'Maximum number of comments to post (prevents spam)'
+    required: false
+    default: '25'
+  fail-on-severity:
+    description: 'Fail the workflow if issues found at or above this severity level'
+    required: false
+    default: 'critical'
+  exclude-patterns:
+    description: 'Comma-separated glob patterns for files to exclude from review'
+    required: false
+    default: '**/*.lock,**/dist/**,**/node_modules/**,**/*.min.js'
+  focus-areas:
+    description: 'Comma-separated priority areas: security,performance,readability,maintainability,correctness'
+    required: false
+    default: ''
+  project-context:
+    description: 'Additional context about the project for better reviews'
+    required: false
+    default: ''
+  github-token:
+    description: 'GitHub token for API access (defaults to GITHUB_TOKEN)'
+    required: false
+    default: ''
+
+outputs:
+  issues-found:
+    description: 'Total number of issues found'
+    value: ${{ steps.review.outputs.issues-found }}
+  critical-count:
+    description: 'Number of critical severity issues'
+    value: ${{ steps.review.outputs.critical-count }}
+  high-count:
+    description: 'Number of high severity issues'
+    value: ${{ steps.review.outputs.high-count }}
+  medium-count:
+    description: 'Number of medium severity issues'
+    value: ${{ steps.review.outputs.medium-count }}
+  low-count:
+    description: 'Number of low severity issues'
+    value: ${{ steps.review.outputs.low-count }}
+  info-count:
+    description: 'Number of info level suggestions'
+    value: ${{ steps.review.outputs.info-count }}
+
+runs:
+  using: 'node20'
+  main: 'index.js'
