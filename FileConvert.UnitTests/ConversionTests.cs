@@ -8,6 +8,8 @@ using SixLabors.ImageSharp.Formats.Gif;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Formats.Tiff;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -55,7 +57,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(116, result.Count);
+            Assert.Equal(119, result.Count);
         }
 
         [Fact]
@@ -488,7 +490,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 2);
+            Assert.True(result.Count == 3);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -2743,6 +2745,140 @@ namespace FileConvert.UnitTests
         }
 
         #endregion EPUB Conversion Tests
+
+        #region DOCX Conversion Tests
+
+        [Fact]
+        public async Task TestConvertingDocxToPdfReturnsStream()
+        {
+            //Arrange
+            var docxStream = ConvertFileToMemoryStream("Documents/Test Document.docx");
+
+            //Act
+            var result = await conversionService.ConvertDocxToPdf(docxStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+            Assert.True(result.Length > 0);
+            // Verify PDF header - PDF files start with %PDF
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var header = reader.ReadLine();
+            Assert.StartsWith("%PDF", header);
+        }
+
+        [Fact]
+        public async Task TestConvertingDocxToHtmlReturnsStream()
+        {
+            //Arrange
+            var docxStream = ConvertFileToMemoryStream("Documents/Test Document.docx");
+
+            //Act
+            var result = await conversionService.ConvertDocxToHtml(docxStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+            Assert.True(result.Length > 0);
+
+            // Verify the HTML content
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var htmlContent = await reader.ReadToEndAsync();
+            Assert.Contains("<!DOCTYPE html>", htmlContent);
+            Assert.Contains("<html>", htmlContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingEmptyDocxToPdfThrowsException()
+        {
+            // Arrange - Create a minimal DOCX with no text content
+            // The OpenXML SDK requires a valid structure, so we create a valid but empty document
+            using var wordDoc = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Create(
+                new MemoryStream(), DocumentFormat.OpenXml.WordprocessingDocumentType.Document);
+            var mainPart = wordDoc.AddMainDocumentPart();
+            mainPart.Document = new DocumentFormat.OpenXml.Wordprocessing.Document();
+            mainPart.Document.Body = new DocumentFormat.OpenXml.Wordprocessing.Body();
+            // Body is empty - no paragraphs
+
+            var emptyStream = new MemoryStream();
+            wordDoc.Clone(emptyStream);
+            emptyStream.Position = 0;
+
+            // Act & Assert - Should throw ArgumentException for empty content
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await conversionService.ConvertDocxToPdf(emptyStream));
+        }
+
+        [Theory]
+        [InlineData(".pdf")]
+        [InlineData(".html")]
+        public void TestAvailableConversionsForDocx(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.docx";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 2);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion DOCX Conversion Tests
+
+        #region XLSX to PDF Conversion Tests
+
+        [Fact]
+        public async Task TestConvertingXlsxToPdfReturnsStream()
+        {
+            //Arrange
+            var xlsxStream = ConvertFileToMemoryStream("Documents/test.xlsx");
+
+            //Act
+            var result = await conversionService.ConvertXlsxToPdf(xlsxStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+            Assert.True(result.Length > 0);
+            // Verify PDF header - PDF files start with %PDF
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var header = reader.ReadLine();
+            Assert.StartsWith("%PDF", header);
+        }
+
+        [Fact]
+        public async Task TestConvertingEmptyXlsxToPdfThrowsException()
+        {
+            // Arrange - Create an empty XLSX spreadsheet
+            using var package = new ExcelPackage();
+            package.Workbook.Worksheets.Add("Sheet1");
+            // Don't add any data - worksheet.Dimension will be null
+            var emptyStream = new MemoryStream(package.GetAsByteArray());
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await conversionService.ConvertXlsxToPdf(emptyStream));
+        }
+
+        [Theory]
+        [InlineData(".pdf")]
+        public void TestAvailableConversionsForXlsx(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.xlsx";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion XLSX to PDF Conversion Tests
 
         #region Helper Methods
         private static MemoryStream ConvertFileToMemoryStream(String FileName)
