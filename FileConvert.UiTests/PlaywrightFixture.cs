@@ -9,6 +9,7 @@ public class PlaywrightFixture : IAsyncLifetime
 {
     public IPlaywright Playwright { get; private set; } = null!;
     public IBrowser Browser { get; private set; } = null!;
+    private IBrowserContext _context = null!;
     public IPage Page { get; private set; } = null!;
 
     // CI environments need longer timeouts
@@ -44,7 +45,22 @@ public class PlaywrightFixture : IAsyncLifetime
             throw new InvalidOperationException("Failed to launch browser after 3 attempts", lastException);
         }
 
-        Page = await Browser.NewPageAsync();
+        await CreateNewContextAsync();
+    }
+
+    /// <summary>
+    /// Creates a fresh browser context and page.
+    /// Call this before each test to ensure isolation - Blazor WASM doesn't handle
+    /// page reloads well in the same browser context.
+    /// </summary>
+    public async Task CreateNewContextAsync()
+    {
+        if (_context != null)
+        {
+            await _context.CloseAsync();
+        }
+        _context = await Browser.NewContextAsync();
+        Page = await _context.NewPageAsync();
 
         // Configure page timeouts for CI environments
         Page.SetDefaultTimeout(DefaultTimeout);
@@ -55,7 +71,10 @@ public class PlaywrightFixture : IAsyncLifetime
     {
         try
         {
-            await Page.CloseAsync();
+            if (_context != null)
+            {
+                await _context.CloseAsync();
+            }
         }
         catch
         {
