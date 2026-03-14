@@ -55,7 +55,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(80, result.Count);
+            Assert.Equal(81, result.Count);
         }
 
         [Fact]
@@ -2188,6 +2188,29 @@ namespace FileConvert.UnitTests
             // Act & Assert
             await Assert.ThrowsAsync<ArgumentException>(
                 () => conversionService.ExtractPdfPageAsync(pdfStream, 100));
+        }
+
+        [Fact]
+        public async Task TestConvertingPdfToTextReturnsStream()
+        {
+            // Arrange
+            var pdfStream = ConvertFileToMemoryStream("Documents/test.pdf");
+            FileExtension sourceExtension = FileExtension.pdf;
+            var availableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(sourceExtension)
+                                        .ThatConvertTo(FileExtension.txt)
+                                        .FirstOrDefault();
+
+            // Act
+            var result = await availableConvertor.Convert(pdfStream);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            result.Position = 0;
+            using var reader = new StreamReader(result);
+            var text = await reader.ReadToEndAsync();
+            Assert.False(string.IsNullOrEmpty(text));
         }
 
         #endregion PDF Merge/Split tests
