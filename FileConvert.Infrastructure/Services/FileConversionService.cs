@@ -44,6 +44,7 @@ using SharpCompress.Archives.Rar;
 using SharpCompress.Common;
 using CoreJ2K;
 using CoreJ2K.ImageSharp;
+using VersOne.Epub;
 
 namespace FileConvert.Infrastructure
 {
@@ -77,7 +78,7 @@ namespace FileConvert.Infrastructure
         /// </summary>
         /// <param name="entryPath">The original entry path from the archive</param>
         /// <returns>A sanitized path safe for use in the output archive</returns>
-        private static string SanitizeArchiveEntryPath(string? entryPath)
+        private static string SanitizeArchiveEntryPath(string entryPath)
         {
             if (string.IsNullOrWhiteSpace(entryPath))
                 return "unknown";
@@ -279,6 +280,13 @@ namespace FileConvert.Infrastructure
 
             // PDF to Text conversion - extract text content from PDFs
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.pdf, FileExtension.txt, ConvertPdfToText));
+
+            // Markdown to PDF conversion - high value document conversion
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.md, FileExtension.pdf, ConvertMarkdownToPdf));
+
+            // EPUB conversions - high value ebook format conversions
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.epub, FileExtension.pdf, ConvertEpubToPdf));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.epub, FileExtension.txt, ConvertEpubToTxt));
 
             Convertors = ConvertorListBuilder.ToImmutable();
         }
@@ -1887,7 +1895,7 @@ namespace FileConvert.Infrastructure
 
         #endregion
 
-        #region PDF Conversion Methods
+        #region PDF to Text Conversion Methods
 
         /// <summary>
         /// Extracts text content from a PDF document.
@@ -1915,6 +1923,240 @@ namespace FileConvert.Infrastructure
 
                 var extractedText = textBuilder.ToString().Trim();
                 return await WriteStringToStreamAsync(extractedText);
+            }
+        }
+
+        #endregion
+
+        #region Markdown to PDF Conversion Methods
+
+        /// <summary>
+        /// Converts Markdown content to PDF format.
+        /// Parses markdown to HTML using Markdig, then renders to PDF using QuestPDF.
+        /// </summary>
+        /// <param name="markdownStream">The markdown stream to convert</param>
+        /// <returns>A PDF stream containing the rendered markdown content</returns>
+        public async Task<MemoryStream> ConvertMarkdownToPdf(MemoryStream markdownStream)
+        {
+            markdownStream.Position = 0;
+            var markdownContent = Encoding.UTF8.GetString(markdownStream.ToArray());
+
+            if (string.IsNullOrWhiteSpace(markdownContent))
+            {
+                throw new ArgumentException("Markdown content is empty");
+            }
+
+            // Convert markdown to HTML
+            var htmlContent = Markdown.ToHtml(markdownContent, CachedMarkdownPipeline);
+
+            // Extract text from HTML for PDF rendering
+            var doc = new HtmlDocument();
+            doc.LoadHtml(htmlContent);
+
+            // Remove script and style elements
+            var scriptNodes = doc.DocumentNode.SelectNodes("//script|//style");
+            if (scriptNodes != null)
+            {
+                foreach (var node in scriptNodes)
+                {
+                    node.Remove();
+                }
+            }
+
+            // Get text content
+            var textContent = ExtractTextFromHtmlNode(doc.DocumentNode);
+
+            // Clean up whitespace
+            textContent = MultipleBlankLinesRegex.Replace(textContent, "\n\n");
+            textContent = HorizontalWhitespaceRegex.Replace(textContent, " ");
+            textContent = textContent.Trim();
+
+            // Create PDF using QuestPDF
+            var outputStream = new MemoryStream();
+
+            Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(1, Unit.Centimetre);
+                    page.DefaultTextStyle(x => x.FontSize(11));
+
+                    page.Content().Text(textContent);
+                });
+            }).GeneratePdf(outputStream);
+
+            outputStream.Position = 0;
+            return await Task.FromResult(outputStream);
+        }
+
+        #endregion
+
+        #region EPUB Conversion Methods
+
+        /// <summary>
+        /// Converts an EPUB ebook to PDF format.
+        /// Extracts text content from all chapters and renders to PDF.
+        /// </summary>
+        /// <param name="epubStream">The EPUB stream to convert</param>
+        /// <returns>A PDF stream containing the ebook content</returns>
+        public async Task<MemoryStream> ConvertEpubToPdf(MemoryStream epubStream)
+        {
+            epubStream.Position = 0;
+
+            // Write EPUB bytes to a temporary file since EpubReader requires a file path
+            var epubBytes = epubStream.ToArray();
+            var tempFilePath = Path.Combine(Path.GetTempPath(), $"epub_{Guid.NewGuid()}.epub");
+
+            try
+            {
+                await File.WriteAllBytesAsync(tempFilePath, epubBytes);
+                var book = await EpubReader.ReadBookAsync(tempFilePath);
+
+                var textBuilder = new StringBuilder();
+
+                // Iterate through the reading order (spine) of the book
+                foreach (var chapterFile in book.ReadingOrder)
+                {
+                    var chapterContent = chapterFile.Content;
+
+                    // Parse HTML content to extract text
+                    var doc = new HtmlDocument();
+                    doc.LoadHtml(chapterContent);
+
+                    // Remove script and style elements
+                    var scriptNodes = doc.DocumentNode.SelectNodes("//script|//style");
+                    if (scriptNodes != null)
+                    {
+                        foreach (var node in scriptNodes)
+                        {
+                            node.Remove();
+                        }
+                    }
+
+                    // Get text content with proper spacing
+                    var chapterText = ExtractTextFromHtmlNode(doc.DocumentNode);
+
+                    // Clean up whitespace
+                    chapterText = MultipleBlankLinesRegex.Replace(chapterText, "\n\n");
+                    chapterText = HorizontalWhitespaceRegex.Replace(chapterText, " ");
+                    chapterText = chapterText.Trim();
+
+                    if (!string.IsNullOrWhiteSpace(chapterText))
+                    {
+                        textBuilder.AppendLine(chapterText);
+                        textBuilder.AppendLine();
+                        textBuilder.AppendLine(); // Extra space between chapters
+                    }
+                }
+
+                var fullText = textBuilder.ToString().Trim();
+
+                if (string.IsNullOrWhiteSpace(fullText))
+                {
+                    throw new ArgumentException("EPUB content is empty or could not be extracted");
+                }
+
+                // Create PDF using QuestPDF
+                var outputStream = new MemoryStream();
+
+                Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.A4);
+                        page.Margin(1, Unit.Centimetre);
+                        page.DefaultTextStyle(x => x.FontSize(11));
+
+                        page.Content().Text(fullText);
+                    });
+                }).GeneratePdf(outputStream);
+
+                outputStream.Position = 0;
+                return outputStream;
+            }
+            finally
+            {
+                // Clean up temporary file
+                if (File.Exists(tempFilePath))
+                {
+                    File.Delete(tempFilePath);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Converts an EPUB ebook to plain text format.
+        /// Extracts text content from all chapters.
+        /// </summary>
+        /// <param name="epubStream">The EPUB stream to convert</param>
+        /// <returns>A text stream containing the ebook content</returns>
+        public async Task<MemoryStream> ConvertEpubToTxt(MemoryStream epubStream)
+        {
+            epubStream.Position = 0;
+
+            // Write EPUB bytes to a temporary file since EpubReader requires a file path
+            var epubBytes = epubStream.ToArray();
+            var tempFilePath = Path.Combine(Path.GetTempPath(), $"epub_{Guid.NewGuid()}.epub");
+
+            try
+            {
+                await File.WriteAllBytesAsync(tempFilePath, epubBytes);
+                var book = await EpubReader.ReadBookAsync(tempFilePath);
+
+                var textBuilder = new StringBuilder();
+
+                // Iterate through the reading order (spine) of the book
+                foreach (var chapterFile in book.ReadingOrder)
+                {
+                    var chapterContent = chapterFile.Content;
+
+                    // Parse HTML content to extract text
+                    var doc = new HtmlDocument();
+                    doc.LoadHtml(chapterContent);
+
+                    // Remove script and style elements
+                    var scriptNodes = doc.DocumentNode.SelectNodes("//script|//style");
+                    if (scriptNodes != null)
+                    {
+                        foreach (var node in scriptNodes)
+                        {
+                            node.Remove();
+                        }
+                    }
+
+                    // Get text content with proper spacing
+                    var chapterText = ExtractTextFromHtmlNode(doc.DocumentNode);
+
+                    // Clean up whitespace
+                    chapterText = MultipleBlankLinesRegex.Replace(chapterText, "\n\n");
+                    chapterText = HorizontalWhitespaceRegex.Replace(chapterText, " ");
+                    chapterText = chapterText.Trim();
+
+                    if (!string.IsNullOrWhiteSpace(chapterText))
+                    {
+                        textBuilder.AppendLine(chapterText);
+                        textBuilder.AppendLine();
+                        textBuilder.AppendLine(); // Extra space between chapters
+                    }
+                }
+
+                var fullText = textBuilder.ToString().Trim();
+
+                if (string.IsNullOrWhiteSpace(fullText))
+                {
+                    throw new ArgumentException("EPUB content is empty or could not be extracted");
+                }
+
+                return await WriteStringToStreamAsync(fullText);
+            }
+            finally
+            {
+                // Clean up temporary file
+                if (File.Exists(tempFilePath))
+                {
+                    File.Delete(tempFilePath);
+                }
             }
         }
 

@@ -43,6 +43,7 @@ namespace FileConvert.Core.ValueObjects
         public static FileExtension rar { get { return new FileExtension(".rar"); } }
         public static FileExtension jp2 { get { return new FileExtension(".jp2"); } }
         public static FileExtension j2k { get { return new FileExtension(".j2k"); } }
+        public static FileExtension epub { get { return new FileExtension(".epub"); } }
 
         public static implicit operator string(FileExtension value)
         {
