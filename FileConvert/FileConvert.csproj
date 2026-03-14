@@ -3,6 +3,10 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
+    <!-- Cross-platform WASM settings -->
+    <BlazorEnableTimeZoneSupport>true</BlazorEnableTimeZoneSupport>
+    <!-- Enable trimming for smaller bundle sizes in release builds -->
+    <PublishTrimmed>true</PublishTrimmed>
   </PropertyGroup>
 
   <ItemGroup>
