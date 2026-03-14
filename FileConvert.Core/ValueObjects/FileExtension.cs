@@ -32,6 +32,12 @@ namespace FileConvert.Core.ValueObjects
         public static FileExtension tiff { get { return new FileExtension(".tiff"); } }
         public static FileExtension ico { get { return new FileExtension(".ico"); } }
         public static FileExtension svg { get { return new FileExtension(".svg"); } }
+        public static FileExtension zip { get { return new FileExtension(".zip"); } }
+        public static FileExtension tar { get { return new FileExtension(".tar"); } }
+        public static FileExtension gz { get { return new FileExtension(".gz"); } }
+        public static FileExtension tgz { get { return new FileExtension(".tgz"); } }
+        public static FileExtension bz2 { get { return new FileExtension(".bz2"); } }
+        public static FileExtension tbz2 { get { return new FileExtension(".tbz2"); } }
 
         public static implicit operator string(FileExtension value)
         {

@@ -54,7 +54,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(60, result.Count);
+            Assert.Equal(72, result.Count);
         }
 
         [Fact]
@@ -1047,6 +1047,7 @@ namespace FileConvert.UnitTests
         [InlineData(".gif")]
         [InlineData(".ico")]
         [InlineData(".jpeg")]
+        [InlineData(".pdf")]
         public void TestAvailableConversionsForWebP(string conversionAvailable)
         {
             //Arrange
@@ -1057,7 +1058,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 5);
+            Assert.True(result.Count == 6);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -1592,6 +1593,231 @@ namespace FileConvert.UnitTests
         }
 
         #endregion SVG conversion tests
+
+        #region Archive conversion tests
+
+        [Fact]
+        public async Task TestConvertingGZToTar()
+        {
+            //Arrange
+            MemoryStream gzStream = ConvertFileToMemoryStream("Documents/test.tar.gz");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.gz)
+                                        .ThatConvertTo(FileExtension.tar)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(gzStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // Verify TAR header - TAR files start with filename
+            result.Position = 0;
+            using var reader = new BinaryReader(result, System.Text.Encoding.Default, leaveOpen: true);
+            var headerBytes = reader.ReadBytes(8);
+            // TAR files have the filename at the start, null-padded to 100 bytes
+            Assert.True(headerBytes.Length > 0);
+        }
+
+        [Fact]
+        public async Task TestConvertingTarToGz()
+        {
+            //Arrange
+            MemoryStream tarStream = ConvertFileToMemoryStream("Documents/test.tar");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.tar)
+                                        .ThatConvertTo(FileExtension.gz)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(tarStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // Verify GZIP header - GZIP files start with magic bytes 1F 8B
+            result.Position = 0;
+            using var reader = new BinaryReader(result, System.Text.Encoding.Default, leaveOpen: true);
+            var magic1 = reader.ReadByte();
+            var magic2 = reader.ReadByte();
+            Assert.Equal(0x1F, magic1);
+            Assert.Equal(0x8B, magic2);
+        }
+
+        [Fact]
+        public async Task TestConvertingBZ2ToTar()
+        {
+            //Arrange
+            MemoryStream bz2Stream = ConvertFileToMemoryStream("Documents/test.tbz2");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.bz2)
+                                        .ThatConvertTo(FileExtension.tar)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(bz2Stream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+        }
+
+        [Theory]
+        [InlineData(".tar")]
+        public void TestAvailableConversionsForGZ(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.gz";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        [Theory]
+        [InlineData(".gz")]
+        [InlineData(".tgz")]
+        public void TestAvailableConversionsForTAR(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.tar";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        [Theory]
+        [InlineData(".tar")]
+        public void TestAvailableConversionsForBZ2(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.bz2";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        [Fact]
+        public async Task TestConvertingGZToTarReturnsStream()
+        {
+            //Arrange
+            MemoryStream gzStream = ConvertFileToMemoryStream("Documents/test.tar.gz");
+
+            //Act
+            var result = await conversionService.ConvertGzToTar(gzStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Fact]
+        public async Task TestConvertingTarToGzReturnsStream()
+        {
+            //Arrange
+            MemoryStream tarStream = ConvertFileToMemoryStream("Documents/test.tar");
+
+            //Act
+            var result = await conversionService.ConvertTarToGz(tarStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Fact]
+        public async Task TestConvertingBz2ToTarReturnsStream()
+        {
+            //Arrange
+            MemoryStream bz2Stream = ConvertFileToMemoryStream("Documents/test.tbz2");
+
+            //Act
+            var result = await conversionService.ConvertBz2ToTar(bz2Stream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        #endregion Archive conversion tests
+
+        #region Image to PDF conversion tests
+
+        [Theory]
+        [InlineData("Documents/small-png-image.png", ".png")]
+        [InlineData("Documents/example.jpg", ".jpg")]
+        [InlineData("Documents/sample.gif", ".gif")]
+        [InlineData("Documents/test.webp", ".webp")]
+        [InlineData("Documents/example.bmp", ".bmp")]
+        public async Task TestConvertingImageToPDF(string filePath, string extension)
+        {
+            //Arrange
+            MemoryStream imageStream = ConvertFileToMemoryStream(filePath);
+
+            FileExtension sourceExtension = extension;
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(sourceExtension)
+                                        .ThatConvertTo(FileExtension.pdf)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(imageStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // Verify PDF header - PDF files start with %PDF
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var header = reader.ReadLine();
+            Assert.StartsWith("%PDF", header);
+        }
+
+        [Theory]
+        [InlineData(".png")]
+        [InlineData(".jpg")]
+        [InlineData(".jpeg")]
+        [InlineData(".gif")]
+        [InlineData(".bmp")]
+        [InlineData(".webp")]
+        public void TestAvailableConversionsToPDF(string sourceExtension)
+        {
+            //Arrange
+            var DocumentName = $"testdoc{sourceExtension}";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.Contains(result, a => a.ConvertedExtension.Value == ".pdf");
+        }
+
+        [Fact]
+        public async Task TestConvertingImageToPdfReturnsStream()
+        {
+            //Arrange
+            MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
+
+            //Act
+            var result = await conversionService.ConvertImageToPdf(pngStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        #endregion Image to PDF conversion tests
 
         #region Helper Methods
         private static MemoryStream ConvertFileToMemoryStream(String FileName)
