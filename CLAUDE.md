@@ -44,12 +44,13 @@ Since the app runs in the browser via WebAssembly, CI only runs on `ubuntu-lates
 | PNG, GIF, BMP, JPG, JPEG, JFIF, WebP, TIFF/TIF | ICO |
 | PNG, GIF, BMP, JPG, JPEG, WebP | PDF |
 | WebP | JPG/JPEG, PNG, GIF |
-| TIFF/TIF | JPG/JPEG, PNG |
+| TIFF/TIF | JPG/JPEG, PNG, WebP |
 | ICO | PNG |
 | SVG | PNG, JPG/JPEG, WebP |
 | GZ/TGZ | TAR |
-| TAR | GZ/TGZ |
+| TAR | GZ/TGZ, ZIP |
 | BZ2/TBZ2 | TAR |
+| ZIP | TAR |
 | CSV | XLSX |
 | CSV | JSON |
 | CSV | YAML/YML |
