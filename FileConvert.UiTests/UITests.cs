@@ -63,9 +63,13 @@ namespace FileConvert.UiTests
         /// <summary>
         /// Navigates to the page and waits for Blazor WASM to fully initialize.
         /// Blazor shows a loading indicator while initializing - we wait for it to disappear.
+        /// Creates a fresh browser context for each test to ensure isolation.
         /// </summary>
         private async Task NavigateAndWaitForBlazorAsync()
         {
+            // Create a fresh context for each test - Blazor WASM doesn't handle
+            // page reloads well in the same browser context
+            await _fixture.CreateNewContextAsync();
             await _fixture.Page.GotoAsync(BaseUrl, new() { WaitUntil = WaitUntilState.NetworkIdle });
             await WaitForBlazorReadyAsync();
         }
@@ -73,7 +77,8 @@ namespace FileConvert.UiTests
         [Fact]
         public async Task TestCanOpenSite()
         {
-            // Arrange
+            // Arrange - create fresh context for test isolation
+            await _fixture.CreateNewContextAsync();
             await _fixture.Page.GotoAsync(BaseUrl, new() { WaitUntil = WaitUntilState.NetworkIdle });
 
             // Act
