@@ -1,105 +1,97 @@
 using FileConvert.Core.ValueObjects;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Support.UI;
-using System;
+using Microsoft.Playwright;
 using System.IO;
-using System.Linq;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace FileConvert.UiTests
 {
-    public class UiTests : IClassFixture<ChromeDriverFixture>
+    public class UiTests : IClassFixture<PlaywrightFixture>
     {
-        ChromeDriverFixture fixture;
+        private readonly PlaywrightFixture _fixture;
+        private static readonly string BaseUrl = System.Environment.GetEnvironmentVariable("TEST_URL") ?? "http://localhost:5100";
 
-        public UiTests(ChromeDriverFixture fixture)
+        public UiTests(PlaywrightFixture fixture)
         {
-            this.fixture = fixture;
+            _fixture = fixture;
         }
 
         [Fact]
-        public void TestCanOpenDevSite()
+        public async Task TestCanOpenSite()
         {
-            //Arrange
-            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
+            // Arrange
+            await _fixture.Page.GotoAsync(BaseUrl);
 
-            //Act
-            var PageTitle = fixture.driver.Title;
-            var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
+            // Act
+            var pageTitle = await _fixture.Page.TitleAsync();
 
-            //Assert
-            Assert.Equal("Browser Based File Conversion Tools", PageTitle);
+            // Assert
+            Assert.Equal("Browser Based File Conversion Tools", pageTitle);
         }
 
         [Fact]
-        public void TestAppStartsUp()
+        public async Task TestAppStartsUp()
         {
-            //Arrange
-            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
+            // Arrange
+            await _fixture.Page.GotoAsync(BaseUrl);
 
-            //Act
-            var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
-            var FileLabel = wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementIsVisible(By.Id("file-label")));
-            
-            //Assert
-            Assert.NotNull(FileLabel);
+            // Act
+            var fileLabel = await _fixture.Page.WaitForSelectorAsync("#file-label", new() { Timeout = 60000 });
+
+            // Assert
+            Assert.NotNull(fileLabel);
         }
 
         [Fact]
-        public void TestFileControlExists()
+        public async Task TestFileControlExists()
         {
-            //Arrange
-            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
+            // Arrange
+            await _fixture.Page.GotoAsync(BaseUrl);
 
-            //Act
-            var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
-            var FileControl = wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementExists(By.Id("file-1")));
+            // Act
+            var fileControl = await _fixture.Page.WaitForSelectorAsync("#file-1", new() { Timeout = 60000 });
 
-            //Assert
-            Assert.NotNull(FileControl);
+            // Assert
+            Assert.NotNull(fileControl);
         }
 
         [Fact]
-        public void TestAvailableFileConversionAppears()
+        public async Task TestAvailableFileConversionAppears()
         {
-            //Arrange
-            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
+            // Arrange
+            await _fixture.Page.GotoAsync(BaseUrl);
+            var uploadElement = await _fixture.Page.WaitForSelectorAsync("#file-1", new() { Timeout = 60000 });
 
-            //Act
-            var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
-            var uploadElement = wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementExists(By.Id("file-1")));
-            
-            var filepath = Directory.GetCurrentDirectory() + $"{Path.DirectorySeparatorChar}Documents{Path.DirectorySeparatorChar}cities.csv";
-            uploadElement.SendKeys(filepath);
+            var filepath = Path.Combine(Directory.GetCurrentDirectory(), "Documents", "cities.csv");
+            await uploadElement!.SetInputFilesAsync(filepath);
 
-            wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementExists(By.ClassName("conversion-choices")));
-            var conversionSelection = fixture.driver.FindElementsByClassName("conversion-choices");
-            var htmlOption = conversionSelection.First().Text;
-            
-            //Assert
-            Assert.NotNull(conversionSelection);
-            Assert.NotEmpty(conversionSelection);
+            // Act - wait for the conversion choice to be attached (it's an option in a select, may not be visible)
+            await _fixture.Page.WaitForSelectorAsync(".conversion-choices", new() { Timeout = 60000, State = WaitForSelectorState.Attached });
+            var conversionSelections = await _fixture.Page.QuerySelectorAllAsync(".conversion-choices");
+
+            // Assert
+            Assert.NotEmpty(conversionSelections);
+            var htmlOption = await conversionSelections[0].TextContentAsync();
             Assert.Equal(FileExtension.xlsx, htmlOption);
         }
 
         [Fact]
-        public void TestNoAvailableFileConversionAppears()
+        public async Task TestNoAvailableFileConversionAppears()
         {
-            //Arrange
-            fixture.driver.Url = "https://devfileconversion.z33.web.core.windows.net/";
+            // Arrange
+            await _fixture.Page.GotoAsync(BaseUrl);
+            var uploadElement = await _fixture.Page.WaitForSelectorAsync("#file-1", new() { Timeout = 60000 });
 
-            //Act
-            var wait = new WebDriverWait(fixture.driver, new TimeSpan(0, 3, 0));
-            var uploadElement = wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementExists(By.Id("file-1")));
+            var filepath = Path.Combine(Directory.GetCurrentDirectory(), "Documents", "test.dgn");
+            await uploadElement!.SetInputFilesAsync(filepath);
 
-            var filepath = Directory.GetCurrentDirectory() + $"{Path.DirectorySeparatorChar}Documents{Path.DirectorySeparatorChar}test.dgn";
-            uploadElement.SendKeys(filepath);
+            // Act
+            var noConversionsFound = await _fixture.Page.WaitForSelectorAsync(".no-convertors-found", new() { Timeout = 60000 });
+            var textContent = await noConversionsFound!.TextContentAsync();
 
-            var noConversionsFound = wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementExists(By.ClassName("no-convertors-found")));
-
-            //Assert
+            // Assert - trim whitespace from the text content
             Assert.NotNull(noConversionsFound);
-            Assert.Equal("No file conversions available for this file type", noConversionsFound.Text);
+            Assert.Equal("No file conversions available for this file type", textContent?.Trim());
         }
     }
 }
