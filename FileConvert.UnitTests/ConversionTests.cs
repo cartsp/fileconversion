@@ -16,6 +16,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
+using YamlDotNet.Core;
 
 namespace FileConvert.UnitTests
 {
@@ -57,7 +58,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(119, result.Count);
+            Assert.Equal(123, result.Count);
         }
 
         [Fact]
@@ -431,7 +432,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 2);
+            Assert.True(result.Count == 4);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -1272,7 +1273,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 2);
+            Assert.True(result.Count == 4);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -2907,6 +2908,183 @@ namespace FileConvert.UnitTests
                 return false;
             }
         }
+
         #endregion Helper Methods
+
+        #region XML to YAML Conversion Tests
+
+        [Fact]
+        public async Task TestConvertingXmlToYaml()
+        {
+            // Arrange
+            MemoryStream xmlStream = ConvertFileToMemoryStream("Documents/test.xml");
+
+            var availableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.xml)
+                                        .ThatConvertTo(FileExtension.yaml)
+                                        .FirstOrDefault();
+
+            // Act
+            var result = await availableConvertor.Convert(xmlStream);
+
+            // Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var yamlContent = await reader.ReadToEndAsync();
+            Assert.Contains("name:", yamlContent);
+            Assert.Contains("value:", yamlContent);
+            Assert.Contains("Test", yamlContent);
+            Assert.Contains("123", yamlContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingXmlToYml()
+        {
+            // Arrange
+            MemoryStream xmlStream = ConvertFileToMemoryStream("Documents/test.xml");
+
+            var availableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.xml)
+                                        .ThatConvertTo(FileExtension.yml)
+                                        .FirstOrDefault();
+
+            // Act
+            var result = await availableConvertor.Convert(xmlStream);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+        }
+
+        [Fact]
+        public async Task TestConvertingXmlToYamlReturnsStream()
+        {
+            // Arrange
+            MemoryStream xmlStream = ConvertFileToMemoryStream("Documents/test.xml");
+
+            // Act
+            var result = await conversionService.ConvertXMLToYAML(xmlStream);
+
+            // Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".yaml")]
+        [InlineData(".yml")]
+        public void TestAvailableConversionsForXmlToYaml(string conversionAvailable)
+        {
+            // Arrange
+            var documentName = "testdoc.xml";
+
+            // Act
+            var result = conversionService.GetConvertorsForFile(documentName);
+
+            // Assert
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion XML to YAML Conversion Tests
+
+        #region YAML to XML Conversion Tests
+
+        [Fact]
+        public async Task TestConvertingYamlToXml()
+        {
+            // Arrange
+            MemoryStream yamlStream = ConvertFileToMemoryStream("Documents/test.yaml");
+
+            var availableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.yaml)
+                                        .ThatConvertTo(FileExtension.xml)
+                                        .FirstOrDefault();
+
+            // Act
+            var result = await availableConvertor.Convert(yamlStream);
+
+            // Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var xmlContent = await reader.ReadToEndAsync();
+            Assert.Contains("<?xml", xmlContent);
+            Assert.Contains("<Root>", xmlContent);
+            Assert.Contains("name", xmlContent);
+            Assert.Contains("Test Configuration", xmlContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingYmlToXml()
+        {
+            // Arrange
+            MemoryStream yamlStream = ConvertFileToMemoryStream("Documents/test.yaml");
+
+            var availableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.yml)
+                                        .ThatConvertTo(FileExtension.xml)
+                                        .FirstOrDefault();
+
+            // Act
+            var result = await availableConvertor.Convert(yamlStream);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+        }
+
+        [Fact]
+        public async Task TestConvertingYamlToXmlReturnsStream()
+        {
+            // Arrange
+            MemoryStream yamlStream = ConvertFileToMemoryStream("Documents/test.yaml");
+
+            // Act
+            var result = await conversionService.ConvertYAMLToXML(yamlStream);
+
+            // Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".yaml")]
+        [InlineData(".yml")]
+        public void TestAvailableConversionsForYamlToXml(string extension)
+        {
+            // Arrange
+            var documentName = $"testdoc{extension}";
+
+            // Act
+            var result = conversionService.GetConvertorsForFile(documentName);
+
+            // Assert
+            Assert.Contains(result, a => a.ConvertedExtension.Value == ".xml");
+        }
+
+        [Fact]
+        public async Task TestConvertingInvalidXmlToYamlThrowsException()
+        {
+            // Arrange - Create invalid XML content
+            var invalidXml = "<root><unclosed>";
+            var xmlStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(invalidXml));
+
+            // Act & Assert
+            await Assert.ThrowsAsync<System.Xml.XmlException>(async () =>
+                await conversionService.ConvertXMLToYAML(xmlStream));
+        }
+
+        [Fact]
+        public async Task TestConvertingInvalidYamlToXmlThrowsException()
+        {
+            // Arrange - Create invalid YAML content with unclosed bracket
+            var invalidYaml = "key: [unclosed";
+            var yamlStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(invalidYaml));
+
+            // Act & Assert - YamlDotNet throws SemanticErrorException for malformed YAML
+            await Assert.ThrowsAsync<YamlDotNet.Core.SemanticErrorException>(async () =>
+                await conversionService.ConvertYAMLToXML(yamlStream));
+        }
+
+        #endregion YAML to XML Conversion Tests
     }
 }

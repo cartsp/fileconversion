@@ -228,6 +228,12 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.yaml, ConvertCSVToYAML));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.yml, ConvertCSVToYAML));
 
+            // XML ↔ YAML conversions - high value configuration format conversions
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.xml, FileExtension.yaml, ConvertXMLToYAML));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.xml, FileExtension.yml, ConvertXMLToYAML));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.yaml, FileExtension.xml, ConvertYAMLToXML));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.yml, FileExtension.xml, ConvertYAMLToXML));
+
             // ICO conversions - create favicons from images
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.png, FileExtension.ico, ConvertImageToIco));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jpg, FileExtension.ico, ConvertImageToIco));
@@ -1033,6 +1039,89 @@ namespace FileConvert.Infrastructure
 
             var yamlContent = CachedYamlSerializer.Serialize(rows);
             return await WriteStringToStreamAsync(yamlContent);
+        }
+
+        /// <summary>
+        /// Converts XML content to YAML format.
+        /// Parses the XML structure and serializes it to YAML while preserving the hierarchy.
+        /// </summary>
+        /// <param name="XMLStream">The XML stream to convert</param>
+        /// <returns>A YAML stream containing the converted content</returns>
+        public async Task<MemoryStream> ConvertXMLToYAML(MemoryStream XMLStream)
+        {
+            // Security: Validate input size to prevent memory exhaustion
+            if (XMLStream.Length > MaxUncompressedSize)
+                throw new InvalidOperationException($"Input XML exceeds maximum allowed size of {MaxUncompressedSize / (1024 * 1024)}MB");
+
+            var xmlString = Encoding.UTF8.GetString(XMLStream.ToArray());
+            var xdoc = XDocument.Parse(xmlString);
+
+            if (xdoc.Root == null)
+            {
+                return await WriteStringToStreamAsync(string.Empty);
+            }
+
+            // Convert XML to dictionary structure (reusing existing XML to JSON logic)
+            var jsonResult = ConvertXmlElementToJson(xdoc.Root);
+
+            // Serialize to YAML
+            var yamlContent = CachedYamlSerializer.Serialize(jsonResult);
+            return await WriteStringToStreamAsync(yamlContent);
+        }
+
+        /// <summary>
+        /// Converts YAML content to XML format.
+        /// Deserializes the YAML to an object structure, then converts to XML.
+        /// </summary>
+        /// <param name="YAMLStream">The YAML stream to convert</param>
+        /// <returns>An XML stream containing the converted content</returns>
+        public async Task<MemoryStream> ConvertYAMLToXML(MemoryStream YAMLStream)
+        {
+            // Security: Validate input size to prevent memory exhaustion
+            if (YAMLStream.Length > MaxUncompressedSize)
+                throw new InvalidOperationException($"Input YAML exceeds maximum allowed size of {MaxUncompressedSize / (1024 * 1024)}MB");
+
+            var yamlContent = Encoding.UTF8.GetString(YAMLStream.ToArray());
+            var yamlObject = CachedYamlDeserializer.Deserialize(yamlContent);
+
+            var rootElement = new XElement("Root");
+            ConvertObjectToXml(yamlObject, rootElement);
+
+            var xmlString = $"<?xml version=\"1.0\" encoding=\"utf-8\"?>{Environment.NewLine}{rootElement}";
+            return await WriteStringToStreamAsync(xmlString);
+        }
+
+        /// <summary>
+        /// Recursively converts an object to XML elements.
+        /// Handles dictionaries, lists, and primitive values.
+        /// </summary>
+        private void ConvertObjectToXml(object obj, XElement parent)
+        {
+            if (obj == null)
+                return;
+
+            if (obj is Dictionary<object, object> dict)
+            {
+                foreach (var kvp in dict)
+                {
+                    var element = new XElement(kvp.Key.ToString() ?? "Item");
+                    ConvertObjectToXml(kvp.Value, element);
+                    parent.Add(element);
+                }
+            }
+            else if (obj is IList<object> list)
+            {
+                foreach (var item in list)
+                {
+                    var element = new XElement("Item");
+                    ConvertObjectToXml(item, element);
+                    parent.Add(element);
+                }
+            }
+            else
+            {
+                parent.Value = obj.ToString() ?? string.Empty;
+            }
         }
 
         public Task<MemoryStream> ConvertImageToIco(MemoryStream imageStream)
