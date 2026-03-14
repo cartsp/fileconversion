@@ -200,6 +200,9 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.txt, FileExtension.jpg, ConvertTextToBarcodeJpg));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.txt, FileExtension.jpeg, ConvertTextToBarcodeJpg));
 
+            // PDF to Text conversion - extract text content from PDFs
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.pdf, FileExtension.txt, ConvertPdfToText));
+
             Convertors = ConvertorListBuilder.ToImmutable();
         }
 
@@ -1510,6 +1513,39 @@ namespace FileConvert.Infrastructure
                 data.SaveTo(outputStream);
                 outputStream.Position = 0;
                 return Task.FromResult(outputStream);
+            }
+        }
+
+        #endregion
+
+        #region PDF Conversion Methods
+
+        /// <summary>
+        /// Extracts text content from a PDF document.
+        /// Reads all pages and concatenates the text content.
+        /// </summary>
+        /// <param name="pdfStream">The PDF stream to extract text from</param>
+        /// <returns>A text stream containing the extracted text</returns>
+        public async Task<MemoryStream> ConvertPdfToText(MemoryStream pdfStream)
+        {
+            pdfStream.Position = 0;
+
+            using (var document = PdfDocument.Open(pdfStream))
+            {
+                var textBuilder = new System.Text.StringBuilder();
+
+                foreach (var page in document.GetPages())
+                {
+                    var pageText = page.Text;
+                    if (!string.IsNullOrWhiteSpace(pageText))
+                    {
+                        textBuilder.AppendLine(pageText);
+                        textBuilder.AppendLine(); // Add blank line between pages
+                    }
+                }
+
+                var extractedText = textBuilder.ToString().Trim();
+                return await WriteStringToStreamAsync(extractedText);
             }
         }
 
