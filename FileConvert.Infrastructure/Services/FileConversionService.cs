@@ -17,6 +17,8 @@ using System.Xml.Linq;
 using Markdig;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using HtmlAgilityPack;
+using System.Text.RegularExpressions;
 
 namespace FileConvert.Infrastructure
 {
@@ -30,6 +32,12 @@ namespace FileConvert.Infrastructure
         private static readonly ISerializer CachedYamlSerializer = new SerializerBuilder()
             .WithNamingConvention(UnderscoredNamingConvention.Instance)
             .Build();
+        private static readonly Regex MultipleBlankLinesRegex = new(@"\r\n\s*\r\n", RegexOptions.Compiled);
+        private static readonly Regex HorizontalWhitespaceRegex = new(@"[ \t]+", RegexOptions.Compiled);
+        private static readonly HashSet<string> BlockElements = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "p", "div", "br", "h1", "h2", "h3", "h4", "h5", "h6", "li", "tr"
+        };
         private static IImmutableList<ConvertorDetails> Convertors = ImmutableList<ConvertorDetails>.Empty;
 
         static FileConversionService()
@@ -86,6 +94,11 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.xlsx, FileExtension.json, ConvertXLSXToJSON));
             // TSV → CSV conversion
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tsv, FileExtension.csv, ConvertTSVToCSV));
+            // CSV ↔ JSON conversions
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.json, ConvertCSVToJSON));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.json, FileExtension.csv, ConvertJSONToCSV));
+            // HTML → Text conversion
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.html, FileExtension.txt, ConvertHTMLToText));
 
             Convertors = ConvertorListBuilder.ToImmutable();
         }
@@ -479,6 +492,225 @@ namespace FileConvert.Infrastructure
             outputStream.Position = 0;
 
             return await Task.FromResult(outputStream);
+        }
+
+        public async Task<MemoryStream> ConvertCSVToJSON(MemoryStream CSVStream)
+        {
+            var csvContent = Encoding.UTF8.GetString(CSVStream.ToArray());
+            using var reader = new StringReader(csvContent);
+
+            // Read header line
+            var headerLine = reader.ReadLine();
+            if (string.IsNullOrEmpty(headerLine))
+            {
+                return await WriteStringToStreamAsync("[]");
+            }
+
+            var headers = ParseCsvLine(headerLine);
+            var rows = new List<Dictionary<string, object>>();
+
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                var values = ParseCsvLine(line);
+                var rowData = new Dictionary<string, object>();
+
+                for (int i = 0; i < headers.Count; i++)
+                {
+                    var value = i < values.Count ? values[i] : string.Empty;
+                    rowData[headers[i]] = ConvertCsvValueToJson(value);
+                }
+
+                rows.Add(rowData);
+            }
+
+            return await WriteStringToStreamAsync(JsonSerializer.Serialize(rows, CachedJsonOptions));
+        }
+
+        public async Task<MemoryStream> ConvertJSONToCSV(MemoryStream JSONStream)
+        {
+            var jsonContent = Encoding.UTF8.GetString(JSONStream.ToArray());
+            using var jsonDoc = JsonDocument.Parse(jsonContent);
+            var root = jsonDoc.RootElement;
+
+            if (root.ValueKind != JsonValueKind.Array || root.GetArrayLength() == 0)
+            {
+                return await WriteStringToStreamAsync(string.Empty);
+            }
+
+            var outputStream = new MemoryStream();
+            using (var writer = new StreamWriter(outputStream, Encoding.UTF8, leaveOpen: true))
+            {
+                // Get headers from first object
+                var firstItem = root[0];
+                var headers = new List<string>();
+                foreach (var property in firstItem.EnumerateObject())
+                {
+                    headers.Add(property.Name);
+                }
+                writer.WriteLine(string.Join(",", headers.Select(EscapeCsvField)));
+
+                // Write each row
+                foreach (var item in root.EnumerateArray())
+                {
+                    var values = new List<string>();
+                    foreach (var header in headers)
+                    {
+                        if (item.TryGetProperty(header, out var prop))
+                        {
+                            values.Add(EscapeCsvField(ConvertJsonElementToCsvValue(prop)));
+                        }
+                        else
+                        {
+                            values.Add(string.Empty);
+                        }
+                    }
+                    writer.WriteLine(string.Join(",", values));
+                }
+            }
+            outputStream.Position = 0;
+
+            return await Task.FromResult(outputStream);
+        }
+
+        public async Task<MemoryStream> ConvertHTMLToText(MemoryStream HTMLStream)
+        {
+            var htmlContent = Encoding.UTF8.GetString(HTMLStream.ToArray());
+
+            var doc = new HtmlDocument();
+            doc.LoadHtml(htmlContent);
+
+            // Remove script and style elements
+            var scriptNodes = doc.DocumentNode.SelectNodes("//script|//style");
+            if (scriptNodes != null)
+            {
+                foreach (var node in scriptNodes)
+                {
+                    node.Remove();
+                }
+            }
+
+            // Get text content with proper spacing for block elements
+            var textContent = ExtractTextFromHtmlNode(doc.DocumentNode);
+
+            // Clean up whitespace
+            textContent = MultipleBlankLinesRegex.Replace(textContent, "\n\n");
+            textContent = HorizontalWhitespaceRegex.Replace(textContent, " ");
+            textContent = textContent.Trim();
+
+            return await WriteStringToStreamAsync(textContent);
+        }
+
+        private string ExtractTextFromHtmlNode(HtmlNode node)
+        {
+            if (node.NodeType == HtmlNodeType.Text)
+            {
+                return node.InnerText;
+            }
+
+            if (node.NodeType == HtmlNodeType.Comment)
+            {
+                return string.Empty;
+            }
+
+            var sb = new StringBuilder();
+            foreach (var child in node.ChildNodes)
+            {
+                sb.Append(ExtractTextFromHtmlNode(child));
+            }
+
+            // Add line breaks for block elements
+            if (BlockElements.Contains(node.Name))
+            {
+                sb.Append('\n');
+            }
+
+            return sb.ToString();
+        }
+
+        private List<string> ParseCsvLine(string line)
+        {
+            var fields = new List<string>();
+            var currentField = new StringBuilder();
+            bool inQuotes = false;
+
+            for (int i = 0; i < line.Length; i++)
+            {
+                char c = line[i];
+
+                if (inQuotes)
+                {
+                    if (c == '"')
+                    {
+                        if (i + 1 < line.Length && line[i + 1] == '"')
+                        {
+                            currentField.Append('"');
+                            i++;
+                        }
+                        else
+                        {
+                            inQuotes = false;
+                        }
+                    }
+                    else
+                    {
+                        currentField.Append(c);
+                    }
+                }
+                else
+                {
+                    if (c == '"')
+                    {
+                        inQuotes = true;
+                    }
+                    else if (c == ',')
+                    {
+                        fields.Add(currentField.ToString());
+                        currentField.Clear();
+                    }
+                    else
+                    {
+                        currentField.Append(c);
+                    }
+                }
+            }
+
+            fields.Add(currentField.ToString());
+            return fields;
+        }
+
+        private object ConvertCsvValueToJson(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return string.Empty;
+
+            // Try to parse as number using invariant culture for consistent parsing
+            if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue))
+                return longValue;
+
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleValue))
+                return doubleValue;
+
+            // Try to parse as boolean
+            if (bool.TryParse(value, out var boolValue))
+                return boolValue;
+
+            return value;
+        }
+
+        private string ConvertJsonElementToCsvValue(JsonElement element)
+        {
+            return element.ValueKind switch
+            {
+                JsonValueKind.String => element.GetString() ?? string.Empty,
+                JsonValueKind.Number => element.ToString(),
+                JsonValueKind.True => "true",
+                JsonValueKind.False => "false",
+                JsonValueKind.Null => string.Empty,
+                _ => element.ToString()
+            };
         }
 
         private void ConvertJsonElementToXml(JsonElement jsonElement, XElement parent)

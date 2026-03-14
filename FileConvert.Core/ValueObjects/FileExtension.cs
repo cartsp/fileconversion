@@ -27,6 +27,7 @@ namespace FileConvert.Core.ValueObjects
         public static FileExtension yaml { get { return new FileExtension(".yaml"); } }
         public static FileExtension yml { get { return new FileExtension(".yml"); } }
         public static FileExtension tsv { get { return new FileExtension(".tsv"); } }
+        public static FileExtension txt { get { return new FileExtension(".txt"); } }
 
         public static implicit operator string(FileExtension value)
         {

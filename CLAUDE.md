@@ -27,6 +27,8 @@ Since the app runs in the browser via WebAssembly, CI only runs on `ubuntu-lates
 - **EPPlus** (7.5.0) - Excel file handling, WASM-compatible
 - **Markdig** (1.1.1) - Markdown processing, WASM-compatible
 - **YamlDotNet** (16.3.0) - YAML serialization, WASM-compatible
+- **HtmlAgilityPack** (1.12.4) - HTML parsing, WASM-compatible
+- **HtmlAgilityPack** (1.12.4) - HTML parsing, WASM-compatible
 
 ### Supported Conversions
 
@@ -36,13 +38,16 @@ Since the app runs in the browser via WebAssembly, CI only runs on `ubuntu-lates
 | PNG, GIF, BMP, JPG, JPEG, JFIF | PNG |
 | PNG, GIF, BMP, JPG, JPEG, JFIF | GIF |
 | CSV | XLSX |
+| CSV | JSON |
 | XLSX | CSV |
 | XLSX | JSON |
 | JSON | XML |
-| XML | JSON |
+| JSON | CSV |
 | JSON | YAML/YML |
+| XML | JSON |
 | YAML/YML | JSON |
 | Markdown (MD) | HTML |
+| HTML | TXT |
 | TSV | CSV |
 
 ## CI/CD
