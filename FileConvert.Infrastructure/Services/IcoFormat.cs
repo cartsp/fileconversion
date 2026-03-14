@@ -15,6 +15,8 @@ namespace FileConvert.Infrastructure
         private const ushort IconType = 1;  // 1 = ICO, 2 = CUR
         private const int IconDirHeaderSize = 6;
         private const int IconDirEntrySize = 16;
+        private const int MaxImageCount = 256;
+        private const int MaxImageSize = 64 * 1024 * 1024; // 64MB max
 
         /// <summary>
         /// Encodes an image as an ICO file with embedded PNG data.
@@ -73,6 +75,8 @@ namespace FileConvert.Infrastructure
             var imageCount = reader.ReadUInt16();
             if (imageCount == 0)
                 throw new InvalidDataException("Invalid ICO file: no images found");
+            if (imageCount > MaxImageCount)
+                throw new InvalidDataException($"Invalid ICO file: too many images ({imageCount}), max is {MaxImageCount}");
 
             // Read all entries to find the largest/best one
             var entries = new IconDirEntry[imageCount];
@@ -103,6 +107,17 @@ namespace FileConvert.Infrastructure
             }
 
             var bestEntry = entries[bestIndex];
+
+            // Validate offset before seeking
+            var minValidOffset = IconDirHeaderSize + imageCount * IconDirEntrySize;
+            if (bestEntry.Offset < minValidOffset || bestEntry.Offset >= input.Length)
+                throw new InvalidDataException($"Invalid ICO file: image offset {bestEntry.Offset} is out of bounds");
+
+            // Validate size before reading
+            if (bestEntry.Size > MaxImageSize)
+                throw new InvalidDataException($"Invalid ICO file: image data too large ({bestEntry.Size} bytes), max is {MaxImageSize} bytes");
+            if (bestEntry.Offset + bestEntry.Size > input.Length)
+                throw new InvalidDataException("Invalid ICO file: image data extends beyond file bounds");
 
             // Seek to image data
             input.Position = bestEntry.Offset;
@@ -137,7 +152,9 @@ namespace FileConvert.Infrastructure
             using var reader = new BinaryReader(dataStream);
 
             // Read BITMAPINFOHEADER
-            var headerSize = reader.ReadUInt32();  // Should be 40
+            var headerSize = reader.ReadUInt32();
+            if (headerSize != 40 && headerSize != 108)
+                throw new InvalidDataException($"Unsupported BMP header size: {headerSize}, expected 40 or 108");
             var bmpWidth = (int)reader.ReadInt32();
             var bmpHeight = (int)reader.ReadInt32() / 2;  // ICO stores double height (XOR + AND masks)
             var planes = reader.ReadUInt16();
@@ -164,15 +181,30 @@ namespace FileConvert.Infrastructure
             // Calculate row stride (rows are padded to 4-byte boundaries)
             int bytesPerPixel = (bpp + 7) / 8;
             int rowStride = ((bmpWidth * bytesPerPixel + 3) / 4) * 4;
+            int pixelDataSize = rowStride * bmpHeight;
+
+            // Validate we have enough data for pixels
+            if (dataStream.Position + pixelDataSize > dataStream.Length)
+                throw new InvalidDataException($"Invalid ICO file: insufficient pixel data (need {pixelDataSize} bytes, have {dataStream.Length - dataStream.Position})");
 
             // Read pixel data (XOR mask)
-            var pixels = new byte[rowStride * bmpHeight];
-            dataStream.Read(pixels, 0, pixels.Length);
+            var pixels = new byte[pixelDataSize];
+            int pixelsRead = dataStream.Read(pixels, 0, pixelDataSize);
+            if (pixelsRead != pixelDataSize)
+                throw new InvalidDataException($"Invalid ICO file: failed to read pixel data (expected {pixelDataSize}, got {pixelsRead})");
 
             // Read AND mask (1-bit transparency mask)
             int andMaskStride = ((bmpWidth + 31) / 32) * 4;
-            var andMask = new byte[andMaskStride * bmpHeight];
-            dataStream.Read(andMask, 0, andMask.Length);
+            int andMaskSize = andMaskStride * bmpHeight;
+
+            // Validate we have enough data for AND mask
+            if (dataStream.Position + andMaskSize > dataStream.Length)
+                throw new InvalidDataException($"Invalid ICO file: insufficient AND mask data (need {andMaskSize} bytes, have {dataStream.Length - dataStream.Position})");
+
+            var andMask = new byte[andMaskSize];
+            int andMaskRead = dataStream.Read(andMask, 0, andMaskSize);
+            if (andMaskRead != andMaskSize)
+                throw new InvalidDataException($"Invalid ICO file: failed to read AND mask data (expected {andMaskSize}, got {andMaskRead})");
 
             // Create output image
             var image = new Image<Rgba32>(bmpWidth, bmpHeight);
@@ -188,6 +220,8 @@ namespace FileConvert.Infrastructure
                     if (bpp == 32)
                     {
                         int offset = srcY * rowStride + x * 4;
+                        if (offset + 3 >= pixels.Length)
+                            throw new InvalidDataException($"Invalid ICO file: pixel data overflow at ({x}, {y})");
                         color = new Rgba32(
                             pixels[offset + 2],  // R
                             pixels[offset + 1],  // G
@@ -198,6 +232,8 @@ namespace FileConvert.Infrastructure
                     else if (bpp == 24)
                     {
                         int offset = srcY * rowStride + x * 3;
+                        if (offset + 2 >= pixels.Length)
+                            throw new InvalidDataException($"Invalid ICO file: pixel data overflow at ({x}, {y})");
                         // Check AND mask for transparency
                         bool transparent = IsBitSet(andMask, srcY * andMaskStride, x);
                         color = new Rgba32(
@@ -210,6 +246,8 @@ namespace FileConvert.Infrastructure
                     else if (bpp == 8)
                     {
                         int offset = srcY * rowStride + x;
+                        if (offset >= pixels.Length)
+                            throw new InvalidDataException($"Invalid ICO file: pixel data overflow at ({x}, {y})");
                         byte paletteIndex = pixels[offset];
                         bool transparent = IsBitSet(andMask, srcY * andMaskStride, x);
                         color = paletteIndex < palette.Length
