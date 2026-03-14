@@ -2371,6 +2371,12 @@ namespace FileConvert.Infrastructure
         /// <summary>
         /// Converts a modern image format (HEIC, AVIF, JXL, DNG) to a standard format using SkiaSharp.
         /// Centralizes conversion logic to avoid code duplication and ensure consistent error handling.
+        ///
+        /// SkiaSharp 3.116.1+ supports these formats natively:
+        /// - HEIF/HEIC: Added in v1.68.1 (SKEncodedImageFormat.Heif)
+        /// - AVIF: Added in v2.88.1 (SKEncodedImageFormat.Avif)
+        /// - DNG: Added in v1.53.0 (SKEncodedImageFormat.Dng)
+        /// - JPEG XL: Added in v3.0.0 (SKEncodedImageFormat.Jpegxl)
         /// </summary>
         /// <param name="inputStream">The input image stream</param>
         /// <param name="targetFormat">The target encoded image format (Jpeg, Png, Webp)</param>
@@ -2385,18 +2391,30 @@ namespace FileConvert.Infrastructure
 
             inputStream.Position = 0;
 
-            // Use stream directly to avoid unnecessary memory allocation from ToArray()
-            using var bitmap = SKBitmap.Decode(inputStream);
+            SKBitmap bitmap;
+            try
+            {
+                // Use stream directly to avoid unnecessary memory allocation from ToArray()
+                bitmap = SKBitmap.Decode(inputStream);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to decode {formatName} image: {ex.Message}", ex);
+            }
+
             if (bitmap == null)
                 throw new InvalidOperationException($"Failed to decode {formatName} image. The format may not be supported on this platform.");
 
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(targetFormat, quality);
+            using (bitmap)
+            {
+                using var image = SKImage.FromBitmap(bitmap);
+                using var data = image.Encode(targetFormat, quality);
 
-            var outputStream = new MemoryStream();
-            data.SaveTo(outputStream);
-            outputStream.Position = 0;
-            return Task.FromResult(outputStream);
+                var outputStream = new MemoryStream();
+                data.SaveTo(outputStream);
+                outputStream.Position = 0;
+                return Task.FromResult(outputStream);
+            }
         }
 
         #endregion
