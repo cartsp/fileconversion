@@ -28,6 +28,8 @@ Since the app runs in the browser via WebAssembly, CI only runs on `ubuntu-lates
 - **Markdig** (1.1.1) - Markdown processing, WASM-compatible
 - **YamlDotNet** (16.3.0) - YAML serialization, WASM-compatible
 - **HtmlAgilityPack** (1.12.4) - HTML parsing, WASM-compatible
+- **SkiaSharp** (3.116.1) - Cross-platform 2D graphics, WASM-compatible
+- **Svg.Skia** (2.0.0) - SVG rendering using SkiaSharp
 
 ### Supported Conversions
 
@@ -41,6 +43,7 @@ Since the app runs in the browser via WebAssembly, CI only runs on `ubuntu-lates
 | WebP | JPG/JPEG, PNG, GIF |
 | TIFF/TIF | JPG/JPEG, PNG |
 | ICO | PNG |
+| SVG | PNG, JPG/JPEG, WebP |
 | CSV | XLSX |
 | CSV | JSON |
 | CSV | YAML/YML |
