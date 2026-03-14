@@ -48,20 +48,29 @@ jobs:
           cd FileConvert
           dotnet run --configuration Release --urls "http://localhost:5000" &
           # Wait for server to be ready with proper error handling
-          max_attempts=30
+          # Increased timeout to 60 seconds for CI environment variability
+          max_attempts=60
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
-            if curl -s --connect-timeout 1 http://localhost:5000 > /dev/null 2>&1; then
-              echo "Server is ready"
+            if curl -s --connect-timeout 2 http://localhost:5000 > /dev/null 2>&1; then
+              echo "Server is ready after $((attempt + 1)) seconds"
+              # Additional wait to ensure Blazor is fully initialized
+              sleep 2
               exit 0
             fi
             attempt=$((attempt + 1))
             sleep 1
           done
           echo "Server failed to start within $max_attempts seconds"
+          # Print diagnostic information
+          echo "Checking for running processes:"
+          ps aux | grep dotnet || true
+          echo "Checking port 5000:"
+          netstat -tlnp 2>/dev/null | grep 5000 || true
           exit 1
 
       - name: Run UI tests
         run: dotnet test FileConvert.UiTests --configuration Release --no-build --verbosity normal
         env:
           TEST_URL: http://localhost:5000
+          CI: true
