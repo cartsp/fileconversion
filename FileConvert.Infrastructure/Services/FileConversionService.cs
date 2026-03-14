@@ -62,13 +62,63 @@ namespace FileConvert.Infrastructure
         private static readonly Regex HorizontalWhitespaceRegex = new(@"[ \t]+", RegexOptions.Compiled);
         private const int StreamBufferSize = 4096;
         private const int DefaultZipCompressionLevel = 6; // Balanced compression/speed
-        private const long MaxUncompressedSize = 1024 * 1024 * 500; // 500MB max
+        private const long MaxUncompressedSize = 1024 * 1024 * 500; // 500MB max per entry
+        private const long MaxTotalUncompressedSize = 1024 * 1024 * 1024; // 1GB max total
         private const int MaxEntryCount = 10000;
         private static readonly HashSet<string> BlockElements = new(StringComparer.OrdinalIgnoreCase)
         {
             "p", "div", "br", "h1", "h2", "h3", "h4", "h5", "h6", "li", "tr"
         };
         private static IImmutableList<ConvertorDetails> Convertors = ImmutableList<ConvertorDetails>.Empty;
+
+        /// <summary>
+        /// Sanitizes an archive entry path to prevent path traversal attacks.
+        /// Uses a secure approach that validates the final path doesn't escape the root.
+        /// </summary>
+        /// <param name="entryPath">The original entry path from the archive</param>
+        /// <returns>A sanitized path safe for use in the output archive</returns>
+        private static string SanitizeArchiveEntryPath(string? entryPath)
+        {
+            if (string.IsNullOrWhiteSpace(entryPath))
+                return "unknown";
+
+            // Normalize path separators and remove leading slashes
+            var normalizedPath = entryPath.Replace('\\', '/').TrimStart('/');
+
+            // Split into path components and filter out dangerous ones
+            var components = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var safeComponents = new List<string>();
+
+            foreach (var component in components)
+            {
+                // Skip empty, current directory, and parent directory references
+                if (string.IsNullOrEmpty(component) || component == "." || component == "..")
+                    continue;
+
+                // Skip components that could be dangerous on Windows
+                if (component.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                {
+                    // Replace invalid characters with underscore
+                    var safeComponent = new string(component.Select(c =>
+                        Path.GetInvalidFileNameChars().Contains(c) ? '_' : c).ToArray());
+                    if (!string.IsNullOrEmpty(safeComponent))
+                        safeComponents.Add(safeComponent);
+                }
+                else
+                {
+                    safeComponents.Add(component);
+                }
+            }
+
+            // Reconstruct the path
+            var safePath = string.Join("/", safeComponents);
+
+            // Final validation: ensure the path doesn't start with .. or contain path traversal patterns
+            if (string.IsNullOrEmpty(safePath) || safePath.StartsWith("..") || safePath.Contains("/../"))
+                return "unknown";
+
+            return safePath;
+        }
 
         static FileConversionService()
         {
@@ -1325,6 +1375,7 @@ namespace FileConvert.Infrastructure
             var outputStream = new MemoryStream();
             sevenZipStream.Position = 0;
             var buffer = new byte[StreamBufferSize];
+            long totalExtractedSize = 0;
 
             using (var archive = SevenZipArchive.Open(sevenZipStream))
             using (var zipOutputStream = new ZipOutputStream(outputStream))
@@ -1344,8 +1395,13 @@ namespace FileConvert.Infrastructure
                     if (entry.Size > MaxUncompressedSize)
                         throw new InvalidOperationException($"Entry '{entry.Key}' exceeds maximum allowed size");
 
+                    // Security: Track cumulative size to prevent decompression bombs
+                    totalExtractedSize += entry.Size;
+                    if (totalExtractedSize > MaxTotalUncompressedSize)
+                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+
                     // Security: Sanitize entry path to prevent path traversal
-                    var sanitizedName = entry.Key?.Replace("..", "").TrimStart('/', '\\') ?? "unknown";
+                    var sanitizedName = SanitizeArchiveEntryPath(entry.Key);
 
                     var zipEntry = new ZipEntry(sanitizedName)
                     {
@@ -1377,6 +1433,7 @@ namespace FileConvert.Infrastructure
             var outputStream = new MemoryStream();
             sevenZipStream.Position = 0;
             var buffer = new byte[StreamBufferSize];
+            long totalExtractedSize = 0;
 
             using (var archive = SevenZipArchive.Open(sevenZipStream))
             using (var tarOutputStream = new TarOutputStream(outputStream, System.Text.Encoding.UTF8))
@@ -1395,8 +1452,13 @@ namespace FileConvert.Infrastructure
                     if (entry.Size > MaxUncompressedSize)
                         throw new InvalidOperationException($"Entry '{entry.Key}' exceeds maximum allowed size");
 
+                    // Security: Track cumulative size to prevent decompression bombs
+                    totalExtractedSize += entry.Size;
+                    if (totalExtractedSize > MaxTotalUncompressedSize)
+                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+
                     // Security: Sanitize entry path to prevent path traversal
-                    var sanitizedName = entry.Key?.Replace("..", "").TrimStart('/', '\\') ?? "unknown";
+                    var sanitizedName = SanitizeArchiveEntryPath(entry.Key);
 
                     var tarEntry = TarEntry.CreateTarEntry(sanitizedName);
                     tarEntry.Size = entry.Size;
@@ -1430,6 +1492,7 @@ namespace FileConvert.Infrastructure
             var outputStream = new MemoryStream();
             rarStream.Position = 0;
             var buffer = new byte[StreamBufferSize];
+            long totalExtractedSize = 0;
 
             using (var archive = RarArchive.Open(rarStream))
             using (var zipOutputStream = new ZipOutputStream(outputStream))
@@ -1449,8 +1512,13 @@ namespace FileConvert.Infrastructure
                     if (entry.Size > MaxUncompressedSize)
                         throw new InvalidOperationException($"Entry '{entry.Key}' exceeds maximum allowed size");
 
+                    // Security: Track cumulative size to prevent decompression bombs
+                    totalExtractedSize += entry.Size;
+                    if (totalExtractedSize > MaxTotalUncompressedSize)
+                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+
                     // Security: Sanitize entry path to prevent path traversal
-                    var sanitizedName = entry.Key?.Replace("..", "").TrimStart('/', '\\') ?? "unknown";
+                    var sanitizedName = SanitizeArchiveEntryPath(entry.Key);
 
                     var zipEntry = new ZipEntry(sanitizedName)
                     {
@@ -1482,6 +1550,7 @@ namespace FileConvert.Infrastructure
             var outputStream = new MemoryStream();
             rarStream.Position = 0;
             var buffer = new byte[StreamBufferSize];
+            long totalExtractedSize = 0;
 
             using (var archive = RarArchive.Open(rarStream))
             using (var tarOutputStream = new TarOutputStream(outputStream, System.Text.Encoding.UTF8))
@@ -1500,8 +1569,13 @@ namespace FileConvert.Infrastructure
                     if (entry.Size > MaxUncompressedSize)
                         throw new InvalidOperationException($"Entry '{entry.Key}' exceeds maximum allowed size");
 
+                    // Security: Track cumulative size to prevent decompression bombs
+                    totalExtractedSize += entry.Size;
+                    if (totalExtractedSize > MaxTotalUncompressedSize)
+                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+
                     // Security: Sanitize entry path to prevent path traversal
-                    var sanitizedName = entry.Key?.Replace("..", "").TrimStart('/', '\\') ?? "unknown";
+                    var sanitizedName = SanitizeArchiveEntryPath(entry.Key);
 
                     var tarEntry = TarEntry.CreateTarEntry(sanitizedName);
                     tarEntry.Size = entry.Size;
