@@ -52,7 +52,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(21, result.Count);
+            Assert.Equal(27, result.Count);
         }
 
         [Fact]
@@ -308,7 +308,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 1);
+            Assert.True(result.Count == 3);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -484,11 +484,260 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 1);
+            Assert.True(result.Count == 2);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
         #endregion XLSX to CSV tests
+
+        #region YAML to JSON tests
+
+        [Fact]
+        public async Task TestConvertingYAMLToJSON()
+        {
+            //Arrange
+            MemoryStream yamlStream = ConvertFileToMemoryStream("Documents/test.yaml");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.yaml)
+                                        .ThatConvertTo(FileExtension.json)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(yamlStream);
+
+            //Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var jsonContent = await reader.ReadToEndAsync();
+            Assert.Contains("Test Configuration", jsonContent);
+            Assert.Contains("localhost", jsonContent);
+            Assert.Contains("5432", jsonContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingYMLToJSON()
+        {
+            //Arrange
+            MemoryStream yamlStream = ConvertFileToMemoryStream("Documents/test.yaml");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.yml)
+                                        .ThatConvertTo(FileExtension.json)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(yamlStream);
+
+            //Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var jsonContent = await reader.ReadToEndAsync();
+            Assert.Contains("Test Configuration", jsonContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingYAMLToJSONReturnsStream()
+        {
+            //Arrange
+            MemoryStream yamlStream = ConvertFileToMemoryStream("Documents/test.yaml");
+
+            //Act
+            var result = await conversionService.ConvertYAMLToJSON(yamlStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".json")]
+        public void TestAvailableConversionsForYAML(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.yaml";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion YAML to JSON tests
+
+        #region JSON to YAML tests
+
+        [Fact]
+        public async Task TestConvertingJSONToYAML()
+        {
+            //Arrange
+            MemoryStream jsonStream = ConvertFileToMemoryStream("Documents/test-for-yaml.json");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.json)
+                                        .ThatConvertTo(FileExtension.yaml)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(jsonStream);
+
+            //Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var yamlContent = await reader.ReadToEndAsync();
+            Assert.Contains("Test Configuration", yamlContent);
+            Assert.Contains("localhost", yamlContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingJSONToYAMLReturnsStream()
+        {
+            //Arrange
+            MemoryStream jsonStream = ConvertFileToMemoryStream("Documents/test-for-yaml.json");
+
+            //Act
+            var result = await conversionService.ConvertJSONToYAML(jsonStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".yaml")]
+        [InlineData(".yml")]
+        public void TestAvailableConversionsForJSONToYAML(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.json";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion JSON to YAML tests
+
+        #region XLSX to JSON tests
+
+        [Fact]
+        public async Task TestConvertingXLSXToJSON()
+        {
+            //Arrange
+            MemoryStream xlsxStream = ConvertFileToMemoryStream("Documents/test.xlsx");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.xlsx)
+                                        .ThatConvertTo(FileExtension.json)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(xlsxStream);
+
+            //Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var jsonContent = await reader.ReadToEndAsync();
+            Assert.Contains("Name", jsonContent);
+            Assert.Contains("Age", jsonContent);
+            Assert.Contains("City", jsonContent);
+            Assert.Contains("Alice", jsonContent);
+            Assert.Contains("Bob", jsonContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingXLSXToJSONReturnsStream()
+        {
+            //Arrange
+            MemoryStream xlsxStream = ConvertFileToMemoryStream("Documents/test.xlsx");
+
+            //Act
+            var result = await conversionService.ConvertXLSXToJSON(xlsxStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".json")]
+        public void TestAvailableConversionsForXLSXToJSON(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.xlsx";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion XLSX to JSON tests
+
+        #region TSV to CSV tests
+
+        [Fact]
+        public async Task TestConvertingTSVToCSV()
+        {
+            //Arrange
+            MemoryStream tsvStream = ConvertFileToMemoryStream("Documents/test.tsv");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.tsv)
+                                        .ThatConvertTo(FileExtension.csv)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(tsvStream);
+
+            //Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var csvContent = await reader.ReadToEndAsync();
+            Assert.Contains("Name,Age,City", csvContent);
+            Assert.Contains("Alice,30,New York", csvContent);
+            Assert.Contains("Bob,25,Los Angeles", csvContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingTSVToCSVReturnsStream()
+        {
+            //Arrange
+            MemoryStream tsvStream = ConvertFileToMemoryStream("Documents/test.tsv");
+
+            //Act
+            var result = await conversionService.ConvertTSVToCSV(tsvStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".csv")]
+        public void TestAvailableConversionsForTSV(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.tsv";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 1);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion TSV to CSV tests
 
         #region Helper Methods
         private static MemoryStream ConvertFileToMemoryStream(String FileName)

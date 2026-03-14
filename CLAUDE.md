@@ -25,6 +25,8 @@ Since the app runs in the browser via WebAssembly, CI only runs on `ubuntu-lates
 
 - **ImageSharp** (3.1.12) - Cross-platform image processing, WASM-compatible
 - **EPPlus** (7.5.0) - Excel file handling, WASM-compatible
+- **Markdig** (1.1.1) - Markdown processing, WASM-compatible
+- **YamlDotNet** (16.3.0) - YAML serialization, WASM-compatible
 
 ### Supported Conversions
 
@@ -34,6 +36,14 @@ Since the app runs in the browser via WebAssembly, CI only runs on `ubuntu-lates
 | PNG, GIF, BMP, JPG, JPEG, JFIF | PNG |
 | PNG, GIF, BMP, JPG, JPEG, JFIF | GIF |
 | CSV | XLSX |
+| XLSX | CSV |
+| XLSX | JSON |
+| JSON | XML |
+| XML | JSON |
+| JSON | YAML/YML |
+| YAML/YML | JSON |
+| Markdown (MD) | HTML |
+| TSV | CSV |
 
 ## CI/CD
 

@@ -24,6 +24,9 @@ namespace FileConvert.Core.ValueObjects
         public static FileExtension tif { get { return new FileExtension(".tif"); } }
         public static FileExtension json { get { return new FileExtension(".json"); } }
         public static FileExtension xml { get { return new FileExtension(".xml"); } }
+        public static FileExtension yaml { get { return new FileExtension(".yaml"); } }
+        public static FileExtension yml { get { return new FileExtension(".yml"); } }
+        public static FileExtension tsv { get { return new FileExtension(".tsv"); } }
 
         public static implicit operator string(FileExtension value)
         {
