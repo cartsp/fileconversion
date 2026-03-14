@@ -31,6 +31,7 @@ namespace FileConvert.Core.ValueObjects
         public static FileExtension webp { get { return new FileExtension(".webp"); } }
         public static FileExtension tiff { get { return new FileExtension(".tiff"); } }
         public static FileExtension ico { get { return new FileExtension(".ico"); } }
+        public static FileExtension svg { get { return new FileExtension(".svg"); } }
 
         public static implicit operator string(FileExtension value)
         {

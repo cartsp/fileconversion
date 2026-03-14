@@ -21,6 +21,8 @@ using YamlDotNet.Serialization.NamingConventions;
 using HtmlAgilityPack;
 using System.Text.RegularExpressions;
 using ImageSharpImage = SixLabors.ImageSharp.Image;
+using SkiaSharp;
+using Svg.Skia;
 
 namespace FileConvert.Infrastructure
 {
@@ -144,6 +146,12 @@ namespace FileConvert.Infrastructure
 
             // ICO → PNG conversion - extract icons
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.ico, FileExtension.png, ConvertIcoToPng));
+
+            // SVG conversions - vector to raster
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.svg, FileExtension.png, ConvertSvgToPng));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.svg, FileExtension.jpg, ConvertSvgToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.svg, FileExtension.jpeg, ConvertSvgToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.svg, FileExtension.webp, ConvertSvgToWebP));
 
             Convertors = ConvertorListBuilder.ToImmutable();
         }
@@ -860,6 +868,53 @@ namespace FileConvert.Infrastructure
             using (var image = IcoFormat.DecodeFromIco(icoStream))
             {
                 image.SaveAsPng(outputStream);
+            }
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        public Task<MemoryStream> ConvertSvgToPng(MemoryStream svgStream)
+            => ConvertSvgToRaster(svgStream, SKEncodedImageFormat.Png, SKColors.Transparent, 100);
+
+        public Task<MemoryStream> ConvertSvgToJpg(MemoryStream svgStream)
+            => ConvertSvgToRaster(svgStream, SKEncodedImageFormat.Jpeg, SKColors.White, 80);
+
+        public Task<MemoryStream> ConvertSvgToWebP(MemoryStream svgStream)
+            => ConvertSvgToRaster(svgStream, SKEncodedImageFormat.Webp, SKColors.Transparent, 80);
+
+        private Task<MemoryStream> ConvertSvgToRaster(
+            MemoryStream svgStream,
+            SKEncodedImageFormat format,
+            SKColor backgroundColor,
+            int quality)
+        {
+            var outputStream = new MemoryStream();
+            svgStream.Position = 0;
+
+            using (var svg = new SKSvg())
+            {
+                svg.Load(svgStream);
+
+                if (svg.Picture != null)
+                {
+                    var dimensions = svg.Picture.CullRect;
+                    var width = (int)Math.Ceiling(dimensions.Width);
+                    var height = (int)Math.Ceiling(dimensions.Height);
+
+                    using (var bitmap = new SKBitmap(width, height))
+                    using (var canvas = new SKCanvas(bitmap))
+                    {
+                        canvas.Clear(backgroundColor);
+                        canvas.DrawPicture(svg.Picture);
+                        canvas.Flush();
+
+                        using (var data = bitmap.Encode(format, quality))
+                        {
+                            data.SaveTo(outputStream);
+                        }
+                    }
+                }
             }
 
             outputStream.Position = 0;
