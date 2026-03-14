@@ -30,6 +30,13 @@ using ICSharpCode.SharpZipLib.Zip;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using UglyToad.PdfPig;
+using UglyToad.PdfPig.Content;
+using UglyToad.PdfPig.Writer;
+using QRCoder;
+using ZXing;
+using ZXing.SkiaSharp;
+using ZXing.SkiaSharp.Rendering;
 
 namespace FileConvert.Infrastructure
 {
@@ -184,6 +191,14 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.gif, FileExtension.pdf, ConvertImageToPdf));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.bmp, FileExtension.pdf, ConvertImageToPdf));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.webp, FileExtension.pdf, ConvertImageToPdf));
+
+            // Text/URL to QR Code conversions
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.txt, FileExtension.png, ConvertTextToQrCodePng));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.qr, FileExtension.png, ConvertTextToQrCodePng));
+
+            // Text/URL to Barcode conversions
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.txt, FileExtension.jpg, ConvertTextToBarcodeJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.txt, FileExtension.jpeg, ConvertTextToBarcodeJpg));
 
             Convertors = ConvertorListBuilder.ToImmutable();
         }
@@ -1303,6 +1318,199 @@ namespace FileConvert.Infrastructure
 
             outputStream.Position = 0;
             return Task.FromResult(outputStream);
+        }
+
+        #endregion
+
+        #region PDF Merge/Split Methods
+
+        /// <summary>
+        /// Merges multiple PDF files into a single PDF document.
+        /// Note: This method requires multiple input streams and is designed for special UI handling.
+        /// </summary>
+        /// <param name="pdfStreams">List of PDF streams to merge</param>
+        /// <returns>A single merged PDF stream</returns>
+        public Task<MemoryStream> MergePdfsAsync(List<MemoryStream> pdfStreams)
+        {
+            if (pdfStreams == null || pdfStreams.Count == 0)
+            {
+                throw new ArgumentException("No PDF streams provided for merging");
+            }
+
+            // Reset all stream positions
+            foreach (var stream in pdfStreams)
+            {
+                stream.Position = 0;
+            }
+
+            // Create temporary files for PdfMerger (it requires file paths)
+            var tempFiles = new List<string>();
+            var outputStream = new MemoryStream();
+
+            try
+            {
+                foreach (var pdfStream in pdfStreams)
+                {
+                    var tempFile = Path.GetTempFileName() + ".pdf";
+                    File.WriteAllBytes(tempFile, pdfStream.ToArray());
+                    tempFiles.Add(tempFile);
+                }
+
+                // Use PdfMerger to merge the files
+                byte[] mergedBytes;
+                if (tempFiles.Count == 1)
+                {
+                    mergedBytes = File.ReadAllBytes(tempFiles[0]);
+                }
+                else
+                {
+                    mergedBytes = PdfMerger.Merge(tempFiles.ToArray());
+                }
+
+                outputStream = new MemoryStream(mergedBytes);
+                outputStream.Position = 0;
+            }
+            finally
+            {
+                // Clean up temporary files
+                foreach (var tempFile in tempFiles)
+                {
+                    if (File.Exists(tempFile))
+                    {
+                        File.Delete(tempFile);
+                    }
+                }
+            }
+
+            return Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Splits a single PDF into individual page PDFs.
+        /// Note: This method returns multiple outputs and is designed for special UI handling.
+        /// </summary>
+        /// <param name="pdfStream">The PDF stream to split</param>
+        /// <returns>A list of MemoryStreams, one for each page</returns>
+        public Task<List<MemoryStream>> SplitPdfAsync(MemoryStream pdfStream)
+        {
+            var resultStreams = new List<MemoryStream>();
+            pdfStream.Position = 0;
+
+            using (var document = PdfDocument.Open(pdfStream))
+            {
+                for (int i = 0; i < document.NumberOfPages; i++)
+                {
+                    var pageNumber = i + 1;
+                    var builder = new PdfDocumentBuilder();
+                    builder.AddPage(document, pageNumber);
+
+                    var pageBytes = builder.Build();
+                    var pageStream = new MemoryStream(pageBytes);
+                    pageStream.Position = 0;
+                    resultStreams.Add(pageStream);
+                }
+            }
+
+            return Task.FromResult(resultStreams);
+        }
+
+        /// <summary>
+        /// Extracts a single page from a PDF.
+        /// </summary>
+        /// <param name="pdfStream">The PDF stream</param>
+        /// <param name="pageNumber">The 1-based page number to extract</param>
+        /// <returns>A PDF stream containing only the specified page</returns>
+        public Task<MemoryStream> ExtractPdfPageAsync(MemoryStream pdfStream, int pageNumber)
+        {
+            pdfStream.Position = 0;
+
+            using (var document = PdfDocument.Open(pdfStream))
+            {
+                if (pageNumber < 1 || pageNumber > document.NumberOfPages)
+                {
+                    throw new ArgumentException($"Page number {pageNumber} is out of range. Document has {document.NumberOfPages} pages.");
+                }
+
+                var builder = new PdfDocumentBuilder();
+                builder.AddPage(document, pageNumber);
+
+                var pageBytes = builder.Build();
+                var outputStream = new MemoryStream(pageBytes);
+                outputStream.Position = 0;
+                return Task.FromResult(outputStream);
+            }
+        }
+
+        #endregion
+
+        #region QR Code Conversion Methods
+
+        /// <summary>
+        /// Converts text content from a stream to a QR code PNG image.
+        /// Reads text from the input stream and generates a QR code.
+        /// </summary>
+        public Task<MemoryStream> ConvertTextToQrCodePng(MemoryStream textStream)
+        {
+            textStream.Position = 0;
+            var textContent = Encoding.UTF8.GetString(textStream.ToArray()).Trim();
+
+            if (string.IsNullOrEmpty(textContent))
+            {
+                throw new ArgumentException("Input text is empty");
+            }
+
+            using (var qrGenerator = new QRCodeGenerator())
+            {
+                var qrCodeData = qrGenerator.CreateQrCode(textContent, QRCodeGenerator.ECCLevel.Q);
+                using (var qrCode = new PngByteQRCode(qrCodeData))
+                {
+                    var qrCodeBytes = qrCode.GetGraphic(20);
+                    var outputStream = new MemoryStream(qrCodeBytes);
+                    outputStream.Position = 0;
+                    return Task.FromResult(outputStream);
+                }
+            }
+        }
+
+        #endregion
+
+        #region Barcode Conversion Methods
+
+        /// <summary>
+        /// Converts text content from a stream to a Code128 barcode JPG image.
+        /// Reads text from the input stream and generates a Code128 barcode.
+        /// </summary>
+        public Task<MemoryStream> ConvertTextToBarcodeJpg(MemoryStream textStream)
+        {
+            textStream.Position = 0;
+            var textContent = Encoding.UTF8.GetString(textStream.ToArray()).Trim();
+
+            if (string.IsNullOrEmpty(textContent))
+            {
+                throw new ArgumentException("Input text is empty");
+            }
+
+            var writer = new BarcodeWriter<SkiaSharp.SKBitmap>
+            {
+                Format = BarcodeFormat.CODE_128,
+                Options = new ZXing.Common.EncodingOptions
+                {
+                    Width = 400,
+                    Height = 150,
+                    Margin = 10
+                },
+                Renderer = new SKBitmapRenderer()
+            };
+
+            using (var bitmap = writer.Write(textContent))
+            using (var image = SkiaSharp.SKImage.FromBitmap(bitmap))
+            using (var data = image.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 90))
+            {
+                var outputStream = new MemoryStream();
+                data.SaveTo(outputStream);
+                outputStream.Position = 0;
+                return Task.FromResult(outputStream);
+            }
         }
 
         #endregion
