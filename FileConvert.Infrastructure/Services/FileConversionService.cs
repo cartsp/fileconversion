@@ -2264,6 +2264,7 @@ namespace FileConvert.Infrastructure
 
         #endregion
 
+        // CSS styles for DOCX to HTML conversion
         private const string DocxToHtmlCss = @"
 body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
 h1 { font-size: 24px; margin-top: 24px; }
@@ -2275,6 +2276,10 @@ th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
 th { background-color: #f2f2f2; }
 ul, ol { margin: 12px 0; padding-left: 24px; }
 li { margin: 4px 0; }";
+
+        // Maximum column width in characters for XLSX to PDF conversion
+        // Prevents excessively wide columns in PDF output
+        private const int MaxColumnWidthChars = 50;
 
         #region DOCX Conversion Methods
 
@@ -2335,29 +2340,44 @@ li { margin: 4px 0; }";
             htmlBuilder.AppendLine("</head>");
             htmlBuilder.AppendLine("<body>");
 
-            // Write to a temporary file since WordprocessingDocument requires a file path or writable stream
-            var tempFilePath = Path.Combine(Path.GetTempPath(), $"docx_{Guid.NewGuid()}.docx");
+            // Create a copy of the stream with auto-grow enabled for WordprocessingDocument
+            // This approach works in WebAssembly without file system access
+            var docxCopy = new MemoryStream(docxStream.ToArray(), true);
 
-            try
+            using var wordDoc = WordprocessingDocument.Open(docxCopy, false);
+            var mainPart = wordDoc.MainDocumentPart;
+
+            if (mainPart?.Document?.Body != null)
             {
-                await File.WriteAllBytesAsync(tempFilePath, docxStream.ToArray());
+                // Track list state for proper HTML list wrapping
+                bool inList = false;
+                var elements = mainPart.Document.Body.Elements().ToList();
 
-                using var wordDoc = WordprocessingDocument.Open(tempFilePath, false);
-                var mainPart = wordDoc.MainDocumentPart;
-
-                if (mainPart?.Document?.Body != null)
+                for (int i = 0; i < elements.Count; i++)
                 {
-                    foreach (var element in mainPart.Document.Body.Elements())
+                    var element = elements[i];
+                    var isListItem = element is NumberingInstance ||
+                                     element.InnerText?.StartsWith("\u2022") == true ||
+                                     element.InnerText?.StartsWith("- ") == true;
+
+                    if (isListItem && !inList)
                     {
-                        ProcessDocxElementToHtml(element, htmlBuilder);
+                        htmlBuilder.AppendLine("<ul>");
+                        inList = true;
                     }
+                    else if (!isListItem && inList)
+                    {
+                        htmlBuilder.AppendLine("</ul>");
+                        inList = false;
+                    }
+
+                    ProcessDocxElementToHtml(element, htmlBuilder);
                 }
-            }
-            finally
-            {
-                if (File.Exists(tempFilePath))
+
+                // Close any open list at the end
+                if (inList)
                 {
-                    File.Delete(tempFilePath);
+                    htmlBuilder.AppendLine("</ul>");
                 }
             }
 
@@ -2374,33 +2394,22 @@ li { margin: 4px 0; }";
         {
             var textBuilder = new StringBuilder();
 
-            // Write to a temporary file since WordprocessingDocument requires a file path or writable stream
-            var tempFilePath = Path.Combine(Path.GetTempPath(), $"docx_{Guid.NewGuid()}.docx");
+            // Create a copy of the stream with auto-grow enabled for WordprocessingDocument
+            // This approach works in WebAssembly without file system access
+            var docxCopy = new MemoryStream(docxStream.ToArray(), true);
 
-            try
+            using var wordDoc = WordprocessingDocument.Open(docxCopy, false);
+            var mainPart = wordDoc.MainDocumentPart;
+
+            if (mainPart?.Document?.Body != null)
             {
-                await File.WriteAllBytesAsync(tempFilePath, docxStream.ToArray());
-
-                using var wordDoc = WordprocessingDocument.Open(tempFilePath, false);
-                var mainPart = wordDoc.MainDocumentPart;
-
-                if (mainPart?.Document?.Body != null)
+                foreach (var element in mainPart.Document.Body.Elements())
                 {
-                    foreach (var element in mainPart.Document.Body.Elements())
+                    var text = ExtractTextFromDocxElement(element);
+                    if (!string.IsNullOrWhiteSpace(text))
                     {
-                        var text = ExtractTextFromDocxElement(element);
-                        if (!string.IsNullOrWhiteSpace(text))
-                        {
-                            textBuilder.AppendLine(text);
-                        }
+                        textBuilder.AppendLine(text);
                     }
-                }
-            }
-            finally
-            {
-                if (File.Exists(tempFilePath))
-                {
-                    File.Delete(tempFilePath);
                 }
             }
 
@@ -2566,32 +2575,35 @@ li { margin: 4px 0; }";
         #region XLSX to PDF Conversion Methods
 
         /// <summary>
+        /// Maximum number of rows to process in XLSX to PDF conversion.
+        /// Prevents memory issues with large spreadsheets.
+        /// </summary>
+        private const int MaxRowsForXlsxToPdf = 500;
+
+        /// <summary>
         /// Converts an XLSX spreadsheet to PDF format.
         /// Uses EPPlus to read the spreadsheet and QuestPDF to render as a table.
         /// </summary>
         /// <param name="xlsxStream">The XLSX stream to convert</param>
         /// <returns>A PDF stream containing the rendered spreadsheet content</returns>
-        public Task<MemoryStream> ConvertXlsxToPdf(MemoryStream xlsxStream)
+        public async Task<MemoryStream> ConvertXlsxToPdf(MemoryStream xlsxStream)
         {
             xlsxStream.Position = 0;
 
             using var package = new ExcelPackage(xlsxStream);
             var worksheet = package.Workbook.Worksheets[0];
 
-            var rowCount = worksheet.Dimension?.Rows ?? 0;
+            var originalRowCount = worksheet.Dimension?.Rows ?? 0;
             var colCount = worksheet.Dimension?.Columns ?? 0;
 
-            if (rowCount == 0 || colCount == 0)
+            if (originalRowCount == 0 || colCount == 0)
             {
                 throw new ArgumentException("XLSX spreadsheet is empty");
             }
 
             // Limit the number of rows to prevent memory issues
-            const int maxRows = 500;
-            if (rowCount > maxRows)
-            {
-                rowCount = maxRows;
-            }
+            var rowCount = Math.Min(originalRowCount, MaxRowsForXlsxToPdf);
+            var wasTruncated = originalRowCount > MaxRowsForXlsxToPdf;
 
             // Extract data from worksheet
             var tableData = new List<List<string>>();
@@ -2608,7 +2620,7 @@ li { margin: 4px 0; }";
                     // Track max column width for formatting
                     if (cellValue.Length > columnWidths[col - 1])
                     {
-                        columnWidths[col - 1] = Math.Min(cellValue.Length, 50); // Cap at 50 chars
+                        columnWidths[col - 1] = Math.Min(cellValue.Length, MaxColumnWidthChars);
                     }
                 }
                 tableData.Add(rowData);
@@ -2619,6 +2631,14 @@ li { margin: 4px 0; }";
 
             // Build text content for PDF
             var textBuilder = new StringBuilder();
+
+            // Add truncation warning if applicable
+            if (wasTruncated)
+            {
+                textBuilder.AppendLine($"WARNING: Document truncated to {MaxRowsForXlsxToPdf} of {originalRowCount} rows");
+                textBuilder.AppendLine(new string('-', 80));
+                textBuilder.AppendLine();
+            }
 
             for (int row = 0; row < tableData.Count; row++)
             {
@@ -2644,7 +2664,7 @@ li { margin: 4px 0; }";
             }).GeneratePdf(outputStream);
 
             outputStream.Position = 0;
-            return Task.FromResult(outputStream);
+            return await Task.FromResult(outputStream);
         }
 
         #endregion
