@@ -1,4 +1,5 @@
 ﻿using FileConvert.Core;
+using System;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -61,6 +62,7 @@ namespace FileConvert.Infrastructure
 
         public async Task<MemoryStream> ConvertDocToHTML(MemoryStream officeDocStream)
         {
+            ArgumentNullException.ThrowIfNull(officeDocStream);
             return await Task.FromResult(officeDocStream).ConfigureAwait(true);
         }
 
@@ -82,6 +84,8 @@ namespace FileConvert.Infrastructure
 
         public async Task<MemoryStream> ConvertImageTojpg(MemoryStream PNGStream)
         {
+            ArgumentNullException.ThrowIfNull(PNGStream);
+
             MemoryStream outputStream = new MemoryStream();
 
             using (Image<Rgba32> image = Image.Load<Rgba32>(PNGStream.ToArray()))
@@ -94,6 +98,8 @@ namespace FileConvert.Infrastructure
 
         public async Task<MemoryStream> ConvertImageToPNG(MemoryStream ImageStream)
         {
+            ArgumentNullException.ThrowIfNull(ImageStream);
+
             MemoryStream outputStream = new MemoryStream();
 
             using (Image<Rgba32> image = Image.Load<Rgba32>(ImageStream.ToArray()))
@@ -118,6 +124,8 @@ namespace FileConvert.Infrastructure
 
         public async Task<MemoryStream> ConvertImageToGIF(MemoryStream ImageStream)
         {
+            ArgumentNullException.ThrowIfNull(ImageStream);
+
             MemoryStream outputStream = new MemoryStream();
 
             using (Image<Rgba32> image = Image.Load<Rgba32>(ImageStream.ToArray()))
@@ -131,6 +139,7 @@ namespace FileConvert.Infrastructure
 
         public async Task<MemoryStream> ConverTifToPNG(MemoryStream TifFile)
         {
+            _ = TifFile; // Parameter reserved for future implementation
             //using (var magicImage = new MagickImage(JPGfile))
             //{
             //    var memoryStream = new MemoryStream();
@@ -140,20 +149,23 @@ namespace FileConvert.Infrastructure
             //    return memoryStream;
             //}
             var msPNG = new MemoryStream();
-            
+
             return await Task.FromResult(msPNG).ConfigureAwait(true);
         }
 
         public async Task<MemoryStream> ConvertMP3ToWav(MemoryStream MP3Stream)
         {
+            _ = MP3Stream; // Parameter reserved for future implementation
             MemoryStream ConvertedWaveStream = new MemoryStream();
 
-            
+
             return await Task.FromResult(ConvertedWaveStream).ConfigureAwait(true);
         }
 
         public async Task<MemoryStream> ConvertCSVToExcel(MemoryStream CSVStream)
         {
+            ArgumentNullException.ThrowIfNull(CSVStream);
+
             ExcelTextFormat format = new ExcelTextFormat();
             format.Delimiter = ',';
             format.Encoding = new UTF8Encoding();

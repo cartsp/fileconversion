@@ -73,7 +73,7 @@ namespace FileConvert.UiTests
             uploadElement.SendKeys(filepath);
 
             wait.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.ElementExists(By.ClassName("conversion-choices")));
-            var conversionSelection = fixture.driver.FindElementsByClassName("conversion-choices");
+            var conversionSelection = fixture.driver.FindElements(By.ClassName("conversion-choices"));
             var htmlOption = conversionSelection.First().Text;
             
             //Assert
