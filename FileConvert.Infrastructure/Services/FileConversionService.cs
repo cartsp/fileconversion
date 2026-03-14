@@ -10,6 +10,7 @@ using FileConvert.Core.Entities;
 using OfficeOpenXml;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
 using FileConvert.Core.ValueObjects;
 using System.Globalization;
 using System.Text.Json;
@@ -26,6 +27,7 @@ namespace FileConvert.Infrastructure
     {
         private static readonly MarkdownPipeline CachedMarkdownPipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
         private static readonly JsonSerializerOptions CachedJsonOptions = new JsonSerializerOptions { WriteIndented = true };
+        private static readonly JpegEncoder CachedJpegEncoder80 = new JpegEncoder { Quality = 80 };
         private static readonly IDeserializer CachedYamlDeserializer = new DeserializerBuilder()
             .WithNamingConvention(UnderscoredNamingConvention.Instance)
             .Build();
@@ -100,6 +102,37 @@ namespace FileConvert.Infrastructure
             // HTML → Text conversion
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.html, FileExtension.txt, ConvertHTMLToText));
 
+            // WebP conversions - to WebP
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.png, FileExtension.webp, ConvertImageToWebP));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jpg, FileExtension.webp, ConvertImageToWebP));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jpeg, FileExtension.webp, ConvertImageToWebP));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.gif, FileExtension.webp, ConvertImageToWebP));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.bmp, FileExtension.webp, ConvertImageToWebP));
+
+            // WebP conversions - from WebP
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.webp, FileExtension.jpg, ConvertWebPToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.webp, FileExtension.jpeg, ConvertWebPToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.webp, FileExtension.png, ConvertWebPToPng));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.webp, FileExtension.gif, ConvertWebPToGif));
+
+            // TIFF conversions
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tif, FileExtension.png, ConvertTiffToPng));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tif, FileExtension.jpg, ConvertTiffToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tif, FileExtension.jpeg, ConvertTiffToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tiff, FileExtension.png, ConvertTiffToPng));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tiff, FileExtension.jpg, ConvertTiffToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tiff, FileExtension.jpeg, ConvertTiffToJpg));
+
+            // TSV → JSON conversion
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tsv, FileExtension.json, ConvertTSVToJSON));
+
+            // XML → CSV conversion
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.xml, FileExtension.csv, ConvertXMLToCSV));
+
+            // CSV → YAML conversion
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.yaml, ConvertCSVToYAML));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.yml, ConvertCSVToYAML));
+
             Convertors = ConvertorListBuilder.ToImmutable();
         }
 
@@ -130,7 +163,7 @@ namespace FileConvert.Infrastructure
 
             using (Image image = Image.Load(PNGStream.ToArray()))
             {
-                image.SaveAsJpeg(outputStream, new JpegEncoder() { Quality = 80 });
+                image.SaveAsJpeg(outputStream, CachedJpegEncoder80);
             }
 
             return await Task.FromResult(outputStream);
@@ -167,6 +200,78 @@ namespace FileConvert.Infrastructure
             using (Image image = Image.Load(ImageStream.ToArray()))
             {
                 image.SaveAsGif(outputStream);
+            }
+
+            return await Task.FromResult(outputStream);
+        }
+
+        public async Task<MemoryStream> ConvertImageToWebP(MemoryStream ImageStream)
+        {
+            MemoryStream outputStream = new MemoryStream();
+
+            using (Image image = Image.Load(ImageStream.ToArray()))
+            {
+                image.SaveAsWebp(outputStream);
+            }
+
+            return await Task.FromResult(outputStream);
+        }
+
+        public async Task<MemoryStream> ConvertWebPToJpg(MemoryStream WebPStream)
+        {
+            MemoryStream outputStream = new MemoryStream();
+
+            using (Image image = Image.Load(WebPStream.ToArray()))
+            {
+                image.SaveAsJpeg(outputStream, CachedJpegEncoder80);
+            }
+
+            return await Task.FromResult(outputStream);
+        }
+
+        public async Task<MemoryStream> ConvertWebPToPng(MemoryStream WebPStream)
+        {
+            MemoryStream outputStream = new MemoryStream();
+
+            using (Image image = Image.Load(WebPStream.ToArray()))
+            {
+                image.SaveAsPng(outputStream);
+            }
+
+            return await Task.FromResult(outputStream);
+        }
+
+        public async Task<MemoryStream> ConvertWebPToGif(MemoryStream WebPStream)
+        {
+            MemoryStream outputStream = new MemoryStream();
+
+            using (Image image = Image.Load(WebPStream.ToArray()))
+            {
+                image.SaveAsGif(outputStream);
+            }
+
+            return await Task.FromResult(outputStream);
+        }
+
+        public async Task<MemoryStream> ConvertTiffToPng(MemoryStream TiffStream)
+        {
+            MemoryStream outputStream = new MemoryStream();
+
+            using (Image image = Image.Load(TiffStream.ToArray()))
+            {
+                image.SaveAsPng(outputStream);
+            }
+
+            return await Task.FromResult(outputStream);
+        }
+
+        public async Task<MemoryStream> ConvertTiffToJpg(MemoryStream TiffStream)
+        {
+            MemoryStream outputStream = new MemoryStream();
+
+            using (Image image = Image.Load(TiffStream.ToArray()))
+            {
+                image.SaveAsJpeg(outputStream, CachedJpegEncoder80);
             }
 
             return await Task.FromResult(outputStream);
@@ -601,6 +706,124 @@ namespace FileConvert.Infrastructure
             textContent = textContent.Trim();
 
             return await WriteStringToStreamAsync(textContent);
+        }
+
+        public async Task<MemoryStream> ConvertTSVToJSON(MemoryStream TSVStream)
+        {
+            var tsvContent = Encoding.UTF8.GetString(TSVStream.ToArray());
+            using var reader = new StringReader(tsvContent);
+
+            // Read header line
+            var headerLine = reader.ReadLine();
+            if (string.IsNullOrEmpty(headerLine))
+            {
+                return await WriteStringToStreamAsync("[]");
+            }
+
+            var headers = headerLine.Split('\t');
+            var rows = new List<Dictionary<string, object>>();
+
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                var values = line.Split('\t');
+                var rowData = new Dictionary<string, object>();
+
+                for (int i = 0; i < headers.Length; i++)
+                {
+                    var value = i < values.Length ? values[i] : string.Empty;
+                    rowData[headers[i]] = ConvertCsvValueToJson(value);
+                }
+
+                rows.Add(rowData);
+            }
+
+            return await WriteStringToStreamAsync(JsonSerializer.Serialize(rows, CachedJsonOptions));
+        }
+
+        public async Task<MemoryStream> ConvertXMLToCSV(MemoryStream XMLStream)
+        {
+            var xmlString = Encoding.UTF8.GetString(XMLStream.ToArray());
+            var xdoc = XDocument.Parse(xmlString);
+
+            var outputStream = new MemoryStream();
+            using (var writer = new StreamWriter(outputStream, Encoding.UTF8, leaveOpen: true))
+            {
+                // Find all leaf elements (elements with no child elements) at a consistent depth
+                var rows = xdoc.Root?.Elements().ToList() ?? new List<XElement>();
+
+                if (rows.Count == 0)
+                {
+                    return await WriteStringToStreamAsync(string.Empty);
+                }
+
+                // Get all unique element names from the first row to use as headers
+                var headers = new HashSet<string>();
+                foreach (var row in rows)
+                {
+                    foreach (var element in row.Elements())
+                    {
+                        headers.Add(element.Name.LocalName);
+                    }
+                }
+                var headerList = headers.ToList();
+
+                // Write header line
+                writer.WriteLine(string.Join(",", headerList.Select(EscapeCsvField)));
+
+                // Write data rows
+                foreach (var row in rows)
+                {
+                    var values = new List<string>();
+                    foreach (var header in headerList)
+                    {
+                        var element = row.Element(header);
+                        values.Add(EscapeCsvField(element?.Value ?? string.Empty));
+                    }
+                    writer.WriteLine(string.Join(",", values));
+                }
+            }
+            outputStream.Position = 0;
+
+            return await Task.FromResult(outputStream);
+        }
+
+        public async Task<MemoryStream> ConvertCSVToYAML(MemoryStream CSVStream)
+        {
+            var csvContent = Encoding.UTF8.GetString(CSVStream.ToArray());
+            using var reader = new StringReader(csvContent);
+
+            // Read header line
+            var headerLine = reader.ReadLine();
+            if (string.IsNullOrEmpty(headerLine))
+            {
+                return await WriteStringToStreamAsync(string.Empty);
+            }
+
+            var headers = ParseCsvLine(headerLine);
+            var rows = new List<Dictionary<string, object>>();
+
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                var values = ParseCsvLine(line);
+                var rowData = new Dictionary<string, object>();
+
+                for (int i = 0; i < headers.Count; i++)
+                {
+                    var value = i < values.Count ? values[i] : string.Empty;
+                    rowData[headers[i]] = ConvertCsvValueToJson(value);
+                }
+
+                rows.Add(rowData);
+            }
+
+            var yamlContent = CachedYamlSerializer.Serialize(rows);
+            return await WriteStringToStreamAsync(yamlContent);
         }
 
         private string ExtractTextFromHtmlNode(HtmlNode node)
