@@ -20,9 +20,6 @@ using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using HtmlAgilityPack;
 using System.Text.RegularExpressions;
-using QuestPDF.Fluent;
-using QuestPDF.Helpers;
-using QuestPDF.Infrastructure;
 using ImageSharpImage = SixLabors.ImageSharp.Image;
 
 namespace FileConvert.Infrastructure
@@ -50,8 +47,6 @@ namespace FileConvert.Infrastructure
         {
             // EPPlus 5+ requires license context to be set
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-            // QuestPDF requires license configuration (Community license is free for non-commercial use)
-            QuestPDF.Settings.License = LicenseType.Community;
         }
 
         public FileConversionService()
@@ -149,16 +144,6 @@ namespace FileConvert.Infrastructure
 
             // ICO → PNG conversion - extract icons
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.ico, FileExtension.png, ConvertIcoToPng));
-
-            // Image to PDF conversions - create PDFs from images
-            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.png, FileExtension.pdf, ConvertImageToPdf));
-            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jpg, FileExtension.pdf, ConvertImageToPdf));
-            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jpeg, FileExtension.pdf, ConvertImageToPdf));
-            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.gif, FileExtension.pdf, ConvertImageToPdf));
-            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.webp, FileExtension.pdf, ConvertImageToPdf));
-            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.bmp, FileExtension.pdf, ConvertImageToPdf));
-            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tif, FileExtension.pdf, ConvertImageToPdf));
-            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tiff, FileExtension.pdf, ConvertImageToPdf));
 
             Convertors = ConvertorListBuilder.ToImmutable();
         }
@@ -878,34 +863,6 @@ namespace FileConvert.Infrastructure
             }
 
             outputStream.Position = 0;
-            return Task.FromResult(outputStream);
-        }
-
-        public Task<MemoryStream> ConvertImageToPdf(MemoryStream imageStream)
-        {
-            imageStream.Position = 0;
-            using var image = ImageSharpImage.Load(imageStream);
-            using var pngStream = new MemoryStream();
-
-            // Convert to PNG for consistent PDF embedding
-            image.SaveAsPng(pngStream);
-            pngStream.Position = 0;
-
-            var document = Document.Create(container =>
-            {
-                container.Page(page =>
-                {
-                    page.Size(PageSizes.A4);
-                    page.Margin(0, Unit.Millimetre);
-                    page.PageColor(Colors.White);
-                    page.Content().AlignCenter().AlignMiddle().Image(pngStream.ToArray()).FitArea();
-                });
-            });
-
-            var outputStream = new MemoryStream();
-            document.GeneratePdf(outputStream);
-            outputStream.Position = 0;
-
             return Task.FromResult(outputStream);
         }
 

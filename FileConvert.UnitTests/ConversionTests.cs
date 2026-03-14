@@ -54,7 +54,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(64, result.Count);
+            Assert.Equal(56, result.Count);
         }
 
         [Fact]
@@ -1046,7 +1046,7 @@ namespace FileConvert.UnitTests
         [InlineData(".png")]
         [InlineData(".gif")]
         [InlineData(".ico")]
-        [InlineData(".pdf")]
+        [InlineData(".jpeg")]
         public void TestAvailableConversionsForWebP(string conversionAvailable)
         {
             //Arrange
@@ -1057,7 +1057,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 6);
+            Assert.True(result.Count == 5);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -1140,7 +1140,7 @@ namespace FileConvert.UnitTests
         [Theory]
         [InlineData(".jpg")]
         [InlineData(".png")]
-        [InlineData(".pdf")]
+        [InlineData(".jpeg")]
         public void TestAvailableConversionsForTIF(string conversionAvailable)
         {
             //Arrange
@@ -1151,7 +1151,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 4);
+            Assert.True(result.Count == 3);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -1470,94 +1470,6 @@ namespace FileConvert.UnitTests
         }
 
         #endregion ICO conversion tests
-
-        #region Image to PDF conversion tests
-
-        [Fact]
-        public async Task TestConvertingPNGToPDF()
-        {
-            //Arrange
-            MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
-
-            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
-                                        .ThatConvertFrom(FileExtension.png)
-                                        .ThatConvertTo(FileExtension.pdf)
-                                        .FirstOrDefault();
-
-            //Act
-            var result = await AvailableConvertor.Convert(pngStream);
-
-            //Assert
-            Assert.NotNull(result);
-            Assert.True(result.Length > 0);
-            // Verify PDF header (%PDF-)
-            result.Position = 0;
-            using var reader = new StreamReader(result, System.Text.Encoding.ASCII, leaveOpen: true);
-            var header = new char[5];
-            reader.Read(header, 0, 5);
-            Assert.Equal("%PDF-", new string(header));
-        }
-
-        [Fact]
-        public async Task TestConvertingJPGToPDF()
-        {
-            //Arrange
-            MemoryStream jpgStream = ConvertFileToMemoryStream("Documents/example.jpg");
-
-            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
-                                        .ThatConvertFrom(FileExtension.jpg)
-                                        .ThatConvertTo(FileExtension.pdf)
-                                        .FirstOrDefault();
-
-            //Act
-            var result = await AvailableConvertor.Convert(jpgStream);
-
-            //Assert
-            Assert.NotNull(result);
-            Assert.True(result.Length > 0);
-            // Verify PDF header (%PDF-)
-            result.Position = 0;
-            using var reader = new StreamReader(result, System.Text.Encoding.ASCII, leaveOpen: true);
-            var header = new char[5];
-            reader.Read(header, 0, 5);
-            Assert.Equal("%PDF-", new string(header));
-        }
-
-        [Fact]
-        public async Task TestConvertingImageToPDFReturnsStream()
-        {
-            //Arrange
-            MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
-
-            //Act
-            var result = await conversionService.ConvertImageToPdf(pngStream);
-
-            //Assert
-            Assert.IsType<MemoryStream>(result);
-        }
-
-        [Theory]
-        [InlineData(".png")]
-        [InlineData(".jpg")]
-        [InlineData(".jpeg")]
-        [InlineData(".gif")]
-        [InlineData(".webp")]
-        [InlineData(".bmp")]
-        [InlineData(".tif")]
-        [InlineData(".tiff")]
-        public void TestAvailableConversionsToPDF(string sourceExtension)
-        {
-            //Arrange
-            var DocumentName = $"testdoc{sourceExtension}";
-
-            //Act
-            var result = conversionService.GetConvertorsForFile(DocumentName);
-
-            //Assert
-            Assert.Contains(result, a => a.ConvertedExtension.Value == ".pdf");
-        }
-
-        #endregion Image to PDF conversion tests
 
         #region Helper Methods
         private static MemoryStream ConvertFileToMemoryStream(String FileName)
