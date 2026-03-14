@@ -6,6 +6,8 @@ using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Gif;
 using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.Formats.Tiff;
 using System;
 using System.IO;
 using System.Linq;
@@ -36,7 +38,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 2);
+            Assert.True(result.Count == 4);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -52,7 +54,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(30, result.Count);
+            Assert.Equal(49, result.Count);
         }
 
         [Fact]
@@ -425,7 +427,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 1);
+            Assert.True(result.Count == 2);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -733,7 +735,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 1);
+            Assert.True(result.Count == 2);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -910,6 +912,419 @@ namespace FileConvert.UnitTests
         }
 
         #endregion HTML to Text tests
+
+        #region WebP image tests
+
+        [Fact]
+        public async Task TestConvertingPNGToWebP()
+        {
+            //Arrange
+            MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.png)
+                                        .ThatConvertTo(FileExtension.webp)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(pngStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, WebpFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingJPGToWebP()
+        {
+            //Arrange
+            MemoryStream jpgStream = ConvertFileToMemoryStream("Documents/example.jpg");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.jpg)
+                                        .ThatConvertTo(FileExtension.webp)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(jpgStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, WebpFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingGIFToWebP()
+        {
+            //Arrange
+            MemoryStream gifStream = ConvertFileToMemoryStream("Documents/sample.gif");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.gif)
+                                        .ThatConvertTo(FileExtension.webp)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(gifStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, WebpFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingBMPToWebP()
+        {
+            //Arrange
+            MemoryStream bmpStream = ConvertFileToMemoryStream("Documents/example.bmp");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.bmp)
+                                        .ThatConvertTo(FileExtension.webp)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(bmpStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, WebpFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingWebPToJPG()
+        {
+            //Arrange
+            MemoryStream webpStream = ConvertFileToMemoryStream("Documents/test.webp");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.webp)
+                                        .ThatConvertTo(FileExtension.jpg)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(webpStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingWebPToPNG()
+        {
+            //Arrange
+            MemoryStream webpStream = ConvertFileToMemoryStream("Documents/test.webp");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.webp)
+                                        .ThatConvertTo(FileExtension.png)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(webpStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, PngFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingWebPToGIF()
+        {
+            //Arrange
+            MemoryStream webpStream = ConvertFileToMemoryStream("Documents/test.webp");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.webp)
+                                        .ThatConvertTo(FileExtension.gif)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(webpStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, GifFormat.Instance));
+        }
+
+        [Theory]
+        [InlineData(".jpg")]
+        [InlineData(".png")]
+        [InlineData(".gif")]
+        public void TestAvailableConversionsForWebP(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.webp";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 4);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion WebP image tests
+
+        #region TIFF image tests
+
+        [Fact]
+        public async Task TestConvertingTIFToPNG()
+        {
+            //Arrange
+            MemoryStream tifStream = ConvertFileToMemoryStream("Documents/test.tif");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.tif)
+                                        .ThatConvertTo(FileExtension.png)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(tifStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, PngFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingTIFToJPG()
+        {
+            //Arrange
+            MemoryStream tifStream = ConvertFileToMemoryStream("Documents/test.tif");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.tif)
+                                        .ThatConvertTo(FileExtension.jpg)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(tifStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingTIFFToPNG()
+        {
+            //Arrange
+            MemoryStream tiffStream = ConvertFileToMemoryStream("Documents/test.tif");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.tiff)
+                                        .ThatConvertTo(FileExtension.png)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(tiffStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, PngFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingTIFFToJPG()
+        {
+            //Arrange
+            MemoryStream tiffStream = ConvertFileToMemoryStream("Documents/test.tif");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.tiff)
+                                        .ThatConvertTo(FileExtension.jpg)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(tiffStream);
+
+            //Assert
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
+        }
+
+        [Theory]
+        [InlineData(".jpg")]
+        [InlineData(".png")]
+        public void TestAvailableConversionsForTIF(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.tif";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 3);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion TIFF image tests
+
+        #region TSV to JSON tests
+
+        [Fact]
+        public async Task TestConvertingTSVToJSON()
+        {
+            //Arrange
+            MemoryStream tsvStream = ConvertFileToMemoryStream("Documents/test.tsv");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.tsv)
+                                        .ThatConvertTo(FileExtension.json)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(tsvStream);
+
+            //Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var jsonContent = await reader.ReadToEndAsync();
+            Assert.Contains("Name", jsonContent);
+            Assert.Contains("Age", jsonContent);
+            Assert.Contains("City", jsonContent);
+            Assert.Contains("Alice", jsonContent);
+            Assert.Contains("Bob", jsonContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingTSVToJSONReturnsStream()
+        {
+            //Arrange
+            MemoryStream tsvStream = ConvertFileToMemoryStream("Documents/test.tsv");
+
+            //Act
+            var result = await conversionService.ConvertTSVToJSON(tsvStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".json")]
+        public void TestAvailableConversionsForTSVToJSON(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.tsv";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 2);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion TSV to JSON tests
+
+        #region XML to CSV tests
+
+        [Fact]
+        public async Task TestConvertingXMLToCSV()
+        {
+            //Arrange
+            MemoryStream xmlStream = ConvertFileToMemoryStream("Documents/test-for-xml-to-csv.xml");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.xml)
+                                        .ThatConvertTo(FileExtension.csv)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(xmlStream);
+
+            //Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var csvContent = await reader.ReadToEndAsync();
+            Assert.Contains("name", csvContent);
+            Assert.Contains("age", csvContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingXMLToCSVReturnsStream()
+        {
+            //Arrange
+            MemoryStream xmlStream = ConvertFileToMemoryStream("Documents/test-for-xml-to-csv.xml");
+
+            //Act
+            var result = await conversionService.ConvertXMLToCSV(xmlStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".csv")]
+        public void TestAvailableConversionsForXMLToCSV(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.xml";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 2);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion XML to CSV tests
+
+        #region CSV to YAML tests
+
+        [Fact]
+        public async Task TestConvertingCSVToYAML()
+        {
+            //Arrange
+            MemoryStream csvStream = ConvertFileToMemoryStream("Documents/test-data.csv");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.csv)
+                                        .ThatConvertTo(FileExtension.yaml)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(csvStream);
+
+            //Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var yamlContent = await reader.ReadToEndAsync();
+            Assert.Contains("Name", yamlContent);
+            Assert.Contains("Age", yamlContent);
+            Assert.Contains("City", yamlContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingCSVToYAMLReturnsStream()
+        {
+            //Arrange
+            MemoryStream csvStream = ConvertFileToMemoryStream("Documents/test-data.csv");
+
+            //Act
+            var result = await conversionService.ConvertCSVToYAML(csvStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".yaml")]
+        [InlineData(".yml")]
+        public void TestAvailableConversionsForCSVToYAML(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.csv";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion CSV to YAML tests
 
         #region Helper Methods
         private static MemoryStream ConvertFileToMemoryStream(String FileName)

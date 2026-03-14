@@ -28,6 +28,8 @@ namespace FileConvert.Core.ValueObjects
         public static FileExtension yml { get { return new FileExtension(".yml"); } }
         public static FileExtension tsv { get { return new FileExtension(".tsv"); } }
         public static FileExtension txt { get { return new FileExtension(".txt"); } }
+        public static FileExtension webp { get { return new FileExtension(".webp"); } }
+        public static FileExtension tiff { get { return new FileExtension(".tiff"); } }
 
         public static implicit operator string(FileExtension value)
         {
