@@ -54,7 +54,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(49, result.Count);
+            Assert.Equal(64, result.Count);
         }
 
         [Fact]
@@ -1045,6 +1045,8 @@ namespace FileConvert.UnitTests
         [InlineData(".jpg")]
         [InlineData(".png")]
         [InlineData(".gif")]
+        [InlineData(".ico")]
+        [InlineData(".pdf")]
         public void TestAvailableConversionsForWebP(string conversionAvailable)
         {
             //Arrange
@@ -1055,7 +1057,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 4);
+            Assert.True(result.Count == 6);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -1138,6 +1140,7 @@ namespace FileConvert.UnitTests
         [Theory]
         [InlineData(".jpg")]
         [InlineData(".png")]
+        [InlineData(".pdf")]
         public void TestAvailableConversionsForTIF(string conversionAvailable)
         {
             //Arrange
@@ -1148,7 +1151,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 3);
+            Assert.True(result.Count == 4);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -1325,6 +1328,236 @@ namespace FileConvert.UnitTests
         }
 
         #endregion CSV to YAML tests
+
+        #region ICO conversion tests
+
+        [Fact]
+        public async Task TestConvertingPNGToICO()
+        {
+            //Arrange
+            MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.png)
+                                        .ThatConvertTo(FileExtension.ico)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(pngStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // Verify ICO header
+            result.Position = 0;
+            using var reader = new BinaryReader(result, System.Text.Encoding.Default, leaveOpen: true);
+            var reserved = reader.ReadUInt16();
+            var type = reader.ReadUInt16();
+            var count = reader.ReadUInt16();
+            Assert.Equal(0, reserved);
+            Assert.Equal(1, type);  // 1 = ICO type
+            Assert.Equal(1, count); // Should have 1 image
+        }
+
+        [Fact]
+        public async Task TestConvertingJPGToICO()
+        {
+            //Arrange
+            MemoryStream jpgStream = ConvertFileToMemoryStream("Documents/example.jpg");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.jpg)
+                                        .ThatConvertTo(FileExtension.ico)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(jpgStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // Verify ICO header
+            result.Position = 0;
+            using var reader = new BinaryReader(result, System.Text.Encoding.Default, leaveOpen: true);
+            var reserved = reader.ReadUInt16();
+            var type = reader.ReadUInt16();
+            Assert.Equal(0, reserved);
+            Assert.Equal(1, type);  // 1 = ICO type
+        }
+
+        [Fact]
+        public async Task TestConvertingICOToPNG()
+        {
+            //Arrange - First create an ICO file from PNG
+            MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
+            var icoStream = await conversionService.ConvertImageToIco(pngStream);
+            icoStream.Position = 0;
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.ico)
+                                        .ThatConvertTo(FileExtension.png)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(icoStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, PngFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingPNGToICOReturnsStream()
+        {
+            //Arrange
+            MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
+
+            //Act
+            var result = await conversionService.ConvertImageToIco(pngStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Fact]
+        public async Task TestConvertingICOToPNGReturnsStream()
+        {
+            //Arrange - First create an ICO file from PNG
+            MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
+            var icoStream = await conversionService.ConvertImageToIco(pngStream);
+            icoStream.Position = 0;
+
+            //Act
+            var result = await conversionService.ConvertIcoToPng(icoStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".png")]
+        [InlineData(".jpg")]
+        [InlineData(".jpeg")]
+        [InlineData(".gif")]
+        [InlineData(".webp")]
+        [InlineData(".bmp")]
+        public void TestAvailableConversionsToICO(string sourceExtension)
+        {
+            //Arrange
+            var DocumentName = $"testdoc{sourceExtension}";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.Contains(result, a => a.ConvertedExtension.Value == ".ico");
+        }
+
+        [Theory]
+        [InlineData(".png")]
+        public void TestAvailableConversionsFromICO(string targetExtension)
+        {
+            //Arrange
+            var DocumentName = "testdoc.ico";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == targetExtension);
+        }
+
+        #endregion ICO conversion tests
+
+        #region Image to PDF conversion tests
+
+        [Fact]
+        public async Task TestConvertingPNGToPDF()
+        {
+            //Arrange
+            MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.png)
+                                        .ThatConvertTo(FileExtension.pdf)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(pngStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // Verify PDF header (%PDF-)
+            result.Position = 0;
+            using var reader = new StreamReader(result, System.Text.Encoding.ASCII, leaveOpen: true);
+            var header = new char[5];
+            reader.Read(header, 0, 5);
+            Assert.Equal("%PDF-", new string(header));
+        }
+
+        [Fact]
+        public async Task TestConvertingJPGToPDF()
+        {
+            //Arrange
+            MemoryStream jpgStream = ConvertFileToMemoryStream("Documents/example.jpg");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.jpg)
+                                        .ThatConvertTo(FileExtension.pdf)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(jpgStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // Verify PDF header (%PDF-)
+            result.Position = 0;
+            using var reader = new StreamReader(result, System.Text.Encoding.ASCII, leaveOpen: true);
+            var header = new char[5];
+            reader.Read(header, 0, 5);
+            Assert.Equal("%PDF-", new string(header));
+        }
+
+        [Fact]
+        public async Task TestConvertingImageToPDFReturnsStream()
+        {
+            //Arrange
+            MemoryStream pngStream = ConvertFileToMemoryStream("Documents/small-png-image.png");
+
+            //Act
+            var result = await conversionService.ConvertImageToPdf(pngStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".png")]
+        [InlineData(".jpg")]
+        [InlineData(".jpeg")]
+        [InlineData(".gif")]
+        [InlineData(".webp")]
+        [InlineData(".bmp")]
+        [InlineData(".tif")]
+        [InlineData(".tiff")]
+        public void TestAvailableConversionsToPDF(string sourceExtension)
+        {
+            //Arrange
+            var DocumentName = $"testdoc{sourceExtension}";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.Contains(result, a => a.ConvertedExtension.Value == ".pdf");
+        }
+
+        #endregion Image to PDF conversion tests
 
         #region Helper Methods
         private static MemoryStream ConvertFileToMemoryStream(String FileName)
