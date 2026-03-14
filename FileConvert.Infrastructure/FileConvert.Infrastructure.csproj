@@ -6,6 +6,8 @@
 
   <ItemGroup>
     <PackageReference Include="EPPlus" Version="7.5.0" />
+    <PackageReference Include="SharpCompress" Version="0.39.0" />
+    <PackageReference Include="CoreJ2K.ImageSharp" Version="1.0.1" />
     <PackageReference Include="SharpZipLib" Version="1.4.2" />
     <PackageReference Include="Markdig" Version="1.1.1" />
     <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0">

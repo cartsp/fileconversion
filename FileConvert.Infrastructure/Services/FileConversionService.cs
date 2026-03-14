@@ -11,6 +11,7 @@ using OfficeOpenXml;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.PixelFormats;
 using FileConvert.Core.ValueObjects;
 using System.Globalization;
 using System.Text.Json;
@@ -37,6 +38,12 @@ using QRCoder;
 using ZXing;
 using ZXing.SkiaSharp;
 using ZXing.SkiaSharp.Rendering;
+using SharpCompress.Archives;
+using SharpCompress.Archives.SevenZip;
+using SharpCompress.Archives.Rar;
+using SharpCompress.Common;
+using CoreJ2K;
+using CoreJ2K.ImageSharp;
 
 namespace FileConvert.Infrastructure
 {
@@ -55,11 +62,63 @@ namespace FileConvert.Infrastructure
         private static readonly Regex HorizontalWhitespaceRegex = new(@"[ \t]+", RegexOptions.Compiled);
         private const int StreamBufferSize = 4096;
         private const int DefaultZipCompressionLevel = 6; // Balanced compression/speed
+        private const long MaxUncompressedSize = 1024 * 1024 * 500; // 500MB max per entry
+        private const long MaxTotalUncompressedSize = 1024 * 1024 * 1024; // 1GB max total
+        private const int MaxEntryCount = 10000;
         private static readonly HashSet<string> BlockElements = new(StringComparer.OrdinalIgnoreCase)
         {
             "p", "div", "br", "h1", "h2", "h3", "h4", "h5", "h6", "li", "tr"
         };
         private static IImmutableList<ConvertorDetails> Convertors = ImmutableList<ConvertorDetails>.Empty;
+
+        /// <summary>
+        /// Sanitizes an archive entry path to prevent path traversal attacks.
+        /// Uses a secure approach that validates the final path doesn't escape the root.
+        /// </summary>
+        /// <param name="entryPath">The original entry path from the archive</param>
+        /// <returns>A sanitized path safe for use in the output archive</returns>
+        private static string SanitizeArchiveEntryPath(string? entryPath)
+        {
+            if (string.IsNullOrWhiteSpace(entryPath))
+                return "unknown";
+
+            // Normalize path separators and remove leading slashes
+            var normalizedPath = entryPath.Replace('\\', '/').TrimStart('/');
+
+            // Split into path components and filter out dangerous ones
+            var components = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var safeComponents = new List<string>();
+
+            foreach (var component in components)
+            {
+                // Skip empty, current directory, and parent directory references
+                if (string.IsNullOrEmpty(component) || component == "." || component == "..")
+                    continue;
+
+                // Skip components that could be dangerous on Windows
+                if (component.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                {
+                    // Replace invalid characters with underscore
+                    var safeComponent = new string(component.Select(c =>
+                        Path.GetInvalidFileNameChars().Contains(c) ? '_' : c).ToArray());
+                    if (!string.IsNullOrEmpty(safeComponent))
+                        safeComponents.Add(safeComponent);
+                }
+                else
+                {
+                    safeComponents.Add(component);
+                }
+            }
+
+            // Reconstruct the path
+            var safePath = string.Join("/", safeComponents);
+
+            // Final validation: ensure the path doesn't start with .. or contain path traversal patterns
+            if (string.IsNullOrEmpty(safePath) || safePath.StartsWith("..") || safePath.Contains("/../"))
+                return "unknown";
+
+            return safePath;
+        }
 
         static FileConversionService()
         {
@@ -67,6 +126,8 @@ namespace FileConvert.Infrastructure
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             // QuestPDF requires license - Community Edition is free for non-commercial use
             QuestPDF.Settings.License = LicenseType.Community;
+            // CoreJ2K.ImageSharp requires registration for ImageSharp support
+            ImageSharpImageCreator.Register();
         }
 
         public FileConversionService()
@@ -183,6 +244,22 @@ namespace FileConvert.Infrastructure
             // ZIP ↔ TAR conversions - ZIP is the most common archive format
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.zip, FileExtension.tar, ConvertZipToTar));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tar, FileExtension.zip, ConvertTarToZip));
+
+            // 7z and RAR archive conversions - high value binary conversions
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension._7z, FileExtension.zip, Convert7zToZip));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension._7z, FileExtension.tar, Convert7zToTar));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.rar, FileExtension.zip, ConvertRarToZip));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.rar, FileExtension.tar, ConvertRarToTar));
+
+            // JPEG 2000 (JP2/J2K) conversions - high value image format conversions
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jp2, FileExtension.png, ConvertJp2ToPng));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jp2, FileExtension.jpg, ConvertJp2ToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jp2, FileExtension.jpeg, ConvertJp2ToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jp2, FileExtension.webp, ConvertJp2ToWebP));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.j2k, FileExtension.png, ConvertJp2ToPng));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.j2k, FileExtension.jpg, ConvertJp2ToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.j2k, FileExtension.jpeg, ConvertJp2ToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.j2k, FileExtension.webp, ConvertJp2ToWebP));
 
             // Image to PDF conversions - very high value for users
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.png, FileExtension.pdf, ConvertImageToPdf));
@@ -1283,6 +1360,298 @@ namespace FileConvert.Infrastructure
                     StreamUtils.Copy(tarInputStream, zipOutputStream, buffer);
                     zipOutputStream.CloseEntry();
                 }
+            }
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Converts a 7z archive to ZIP format.
+        /// Extracts all entries from the 7z and repackages them into a ZIP archive.
+        /// </summary>
+        public Task<MemoryStream> Convert7zToZip(MemoryStream sevenZipStream)
+        {
+            var outputStream = new MemoryStream();
+            sevenZipStream.Position = 0;
+            var buffer = new byte[StreamBufferSize];
+            long totalExtractedSize = 0;
+
+            using (var archive = SevenZipArchive.Open(sevenZipStream))
+            using (var zipOutputStream = new ZipOutputStream(outputStream))
+            {
+                zipOutputStream.IsStreamOwner = false;
+                zipOutputStream.SetLevel(DefaultZipCompressionLevel);
+
+                var entries = archive.Entries.Where(e => !e.IsDirectory).ToList();
+
+                // Security: Check entry count to prevent decompression bombs
+                if (entries.Count > MaxEntryCount)
+                    throw new InvalidOperationException("Archive contains too many entries");
+
+                foreach (var entry in entries)
+                {
+                    // Security: Check entry size to prevent decompression bombs
+                    if (entry.Size > MaxUncompressedSize)
+                        throw new InvalidOperationException($"Entry '{entry.Key}' exceeds maximum allowed size");
+
+                    // Security: Track cumulative size to prevent decompression bombs
+                    totalExtractedSize += entry.Size;
+                    if (totalExtractedSize > MaxTotalUncompressedSize)
+                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+
+                    // Security: Sanitize entry path to prevent path traversal
+                    var sanitizedName = SanitizeArchiveEntryPath(entry.Key);
+
+                    var zipEntry = new ZipEntry(sanitizedName)
+                    {
+                        DateTime = entry.CreatedTime ?? DateTime.Now,
+                        Size = entry.Size
+                    };
+
+                    zipOutputStream.PutNextEntry(zipEntry);
+
+                    using (var entryStream = entry.OpenEntryStream())
+                    {
+                        StreamUtils.Copy(entryStream, zipOutputStream, buffer);
+                    }
+
+                    zipOutputStream.CloseEntry();
+                }
+            }
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Converts a 7z archive to TAR format.
+        /// Extracts all entries from the 7z and repackages them into a TAR archive.
+        /// </summary>
+        public Task<MemoryStream> Convert7zToTar(MemoryStream sevenZipStream)
+        {
+            var outputStream = new MemoryStream();
+            sevenZipStream.Position = 0;
+            var buffer = new byte[StreamBufferSize];
+            long totalExtractedSize = 0;
+
+            using (var archive = SevenZipArchive.Open(sevenZipStream))
+            using (var tarOutputStream = new TarOutputStream(outputStream, System.Text.Encoding.UTF8))
+            {
+                tarOutputStream.IsStreamOwner = false;
+
+                var entries = archive.Entries.Where(e => !e.IsDirectory).ToList();
+
+                // Security: Check entry count to prevent decompression bombs
+                if (entries.Count > MaxEntryCount)
+                    throw new InvalidOperationException("Archive contains too many entries");
+
+                foreach (var entry in entries)
+                {
+                    // Security: Check entry size to prevent decompression bombs
+                    if (entry.Size > MaxUncompressedSize)
+                        throw new InvalidOperationException($"Entry '{entry.Key}' exceeds maximum allowed size");
+
+                    // Security: Track cumulative size to prevent decompression bombs
+                    totalExtractedSize += entry.Size;
+                    if (totalExtractedSize > MaxTotalUncompressedSize)
+                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+
+                    // Security: Sanitize entry path to prevent path traversal
+                    var sanitizedName = SanitizeArchiveEntryPath(entry.Key);
+
+                    var tarEntry = TarEntry.CreateTarEntry(sanitizedName);
+                    tarEntry.Size = entry.Size;
+
+                    if (entry.CreatedTime.HasValue)
+                    {
+                        tarEntry.ModTime = entry.CreatedTime.Value;
+                    }
+
+                    tarOutputStream.PutNextEntry(tarEntry);
+
+                    using (var entryStream = entry.OpenEntryStream())
+                    {
+                        StreamUtils.Copy(entryStream, tarOutputStream, buffer);
+                    }
+
+                    tarOutputStream.CloseEntry();
+                }
+            }
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Converts a RAR archive to ZIP format.
+        /// Extracts all entries from the RAR and repackages them into a ZIP archive.
+        /// </summary>
+        public Task<MemoryStream> ConvertRarToZip(MemoryStream rarStream)
+        {
+            var outputStream = new MemoryStream();
+            rarStream.Position = 0;
+            var buffer = new byte[StreamBufferSize];
+            long totalExtractedSize = 0;
+
+            using (var archive = RarArchive.Open(rarStream))
+            using (var zipOutputStream = new ZipOutputStream(outputStream))
+            {
+                zipOutputStream.IsStreamOwner = false;
+                zipOutputStream.SetLevel(DefaultZipCompressionLevel);
+
+                var entries = archive.Entries.Where(e => !e.IsDirectory).ToList();
+
+                // Security: Check entry count to prevent decompression bombs
+                if (entries.Count > MaxEntryCount)
+                    throw new InvalidOperationException("Archive contains too many entries");
+
+                foreach (var entry in entries)
+                {
+                    // Security: Check entry size to prevent decompression bombs
+                    if (entry.Size > MaxUncompressedSize)
+                        throw new InvalidOperationException($"Entry '{entry.Key}' exceeds maximum allowed size");
+
+                    // Security: Track cumulative size to prevent decompression bombs
+                    totalExtractedSize += entry.Size;
+                    if (totalExtractedSize > MaxTotalUncompressedSize)
+                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+
+                    // Security: Sanitize entry path to prevent path traversal
+                    var sanitizedName = SanitizeArchiveEntryPath(entry.Key);
+
+                    var zipEntry = new ZipEntry(sanitizedName)
+                    {
+                        DateTime = entry.CreatedTime ?? DateTime.Now,
+                        Size = entry.Size
+                    };
+
+                    zipOutputStream.PutNextEntry(zipEntry);
+
+                    using (var entryStream = entry.OpenEntryStream())
+                    {
+                        StreamUtils.Copy(entryStream, zipOutputStream, buffer);
+                    }
+
+                    zipOutputStream.CloseEntry();
+                }
+            }
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Converts a RAR archive to TAR format.
+        /// Extracts all entries from the RAR and repackages them into a TAR archive.
+        /// </summary>
+        public Task<MemoryStream> ConvertRarToTar(MemoryStream rarStream)
+        {
+            var outputStream = new MemoryStream();
+            rarStream.Position = 0;
+            var buffer = new byte[StreamBufferSize];
+            long totalExtractedSize = 0;
+
+            using (var archive = RarArchive.Open(rarStream))
+            using (var tarOutputStream = new TarOutputStream(outputStream, System.Text.Encoding.UTF8))
+            {
+                tarOutputStream.IsStreamOwner = false;
+
+                var entries = archive.Entries.Where(e => !e.IsDirectory).ToList();
+
+                // Security: Check entry count to prevent decompression bombs
+                if (entries.Count > MaxEntryCount)
+                    throw new InvalidOperationException("Archive contains too many entries");
+
+                foreach (var entry in entries)
+                {
+                    // Security: Check entry size to prevent decompression bombs
+                    if (entry.Size > MaxUncompressedSize)
+                        throw new InvalidOperationException($"Entry '{entry.Key}' exceeds maximum allowed size");
+
+                    // Security: Track cumulative size to prevent decompression bombs
+                    totalExtractedSize += entry.Size;
+                    if (totalExtractedSize > MaxTotalUncompressedSize)
+                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+
+                    // Security: Sanitize entry path to prevent path traversal
+                    var sanitizedName = SanitizeArchiveEntryPath(entry.Key);
+
+                    var tarEntry = TarEntry.CreateTarEntry(sanitizedName);
+                    tarEntry.Size = entry.Size;
+
+                    if (entry.CreatedTime.HasValue)
+                    {
+                        tarEntry.ModTime = entry.CreatedTime.Value;
+                    }
+
+                    tarOutputStream.PutNextEntry(tarEntry);
+
+                    using (var entryStream = entry.OpenEntryStream())
+                    {
+                        StreamUtils.Copy(entryStream, tarOutputStream, buffer);
+                    }
+
+                    tarOutputStream.CloseEntry();
+                }
+            }
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        #endregion
+
+        #region JPEG 2000 Conversion Methods
+
+        /// <summary>
+        /// Converts a JPEG 2000 (JP2/J2K) image to PNG format.
+        /// </summary>
+        public Task<MemoryStream> ConvertJp2ToPng(MemoryStream jp2Stream)
+        {
+            var outputStream = new MemoryStream();
+            jp2Stream.Position = 0;
+
+            var decodedImage = J2kImage.FromStream(jp2Stream);
+            using (var image = decodedImage.As<Image<Rgb24>>())
+            {
+                image.SaveAsPng(outputStream);
+            }
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Converts a JPEG 2000 (JP2/J2K) image to JPG format.
+        /// </summary>
+        public Task<MemoryStream> ConvertJp2ToJpg(MemoryStream jp2Stream)
+        {
+            var outputStream = new MemoryStream();
+            jp2Stream.Position = 0;
+
+            var decodedImage = J2kImage.FromStream(jp2Stream);
+            using (var image = decodedImage.As<Image<Rgb24>>())
+            {
+                image.SaveAsJpeg(outputStream, CachedJpegEncoder80);
+            }
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Converts a JPEG 2000 (JP2/J2K) image to WebP format.
+        /// </summary>
+        public Task<MemoryStream> ConvertJp2ToWebP(MemoryStream jp2Stream)
+        {
+            var outputStream = new MemoryStream();
+            jp2Stream.Position = 0;
+
+            var decodedImage = J2kImage.FromStream(jp2Stream);
+            using (var image = decodedImage.As<Image<Rgb24>>())
+            {
+                image.SaveAsWebp(outputStream);
             }
 
             outputStream.Position = 0;
