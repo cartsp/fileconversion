@@ -28,17 +28,38 @@ jobs:
       - name: Run unit tests
         run: dotnet test FileConvert.UnitTests --configuration Release --no-build --verbosity normal
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('**/*.csproj') }}
+          restore-keys: playwright-
+
       - name: Setup Playwright
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: |
           dotnet tool install --global Microsoft.Playwright.CLI
           playwright install chromium
 
       - name: Start Blazor app
+        shell: bash
         run: |
           cd FileConvert
           dotnet run --configuration Release --urls "http://localhost:5000" &
-          sleep 15
-          curl --retry 10 --retry-delay 2 --retry-connrefused http://localhost:5000 > /dev/null
+          # Wait for server to be ready with proper error handling
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -s --connect-timeout 1 http://localhost:5000 > /dev/null 2>&1; then
+              echo "Server is ready"
+              exit 0
+            fi
+            attempt=$((attempt + 1))
+            sleep 1
+          done
+          echo "Server failed to start within $max_attempts seconds"
+          exit 1
 
       - name: Run UI tests
         run: dotnet test FileConvert.UiTests --configuration Release --no-build --verbosity normal
