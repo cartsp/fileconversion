@@ -1,6 +1,6 @@
 using FileConvert.Core.ValueObjects;
 using FileConvert.Infrastructure;
-using OfficeOpenXml;
+using ClosedXML.Excel;
 using System;
 using System.Drawing.Imaging;
 using System.IO;
@@ -70,10 +70,10 @@ namespace FileConvert.UnitTests
             //Act
             var result = await conversionService.ConvertCSVToExcel(officeDocStream);
             string foundValueInA1;
-            
-            using (ExcelPackage package = new ExcelPackage(result))
+
+            using (var workbook = new XLWorkbook(result))
             {
-                foundValueInA1 = package.Workbook.Worksheets[0].Cells[1, 1].Value.ToString();
+                foundValueInA1 = workbook.Worksheet(1).Cell(1, 1).Value.ToString();
             }
 
             //Assert

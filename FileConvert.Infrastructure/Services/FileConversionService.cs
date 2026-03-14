@@ -7,7 +7,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using FileConvert.Core.Entities;
 //using NAudio.Wave;
-using OfficeOpenXml;
+using ClosedXML.Excel;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Formats.Jpeg;
@@ -166,21 +166,64 @@ namespace FileConvert.Infrastructure
         {
             ArgumentNullException.ThrowIfNull(CSVStream);
 
-            ExcelTextFormat format = new ExcelTextFormat();
-            format.Delimiter = ',';
-            format.Encoding = new UTF8Encoding();
-            format.EOL = "\n";
+            var csvContent = Encoding.UTF8.GetString(CSVStream.ToArray());
+            var lines = csvContent.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
 
-            var csvFile= Encoding.ASCII.GetString(CSVStream.ToArray());
-
-            using (var package = new ExcelPackage())
+            using (var workbook = new XLWorkbook())
             {
-                var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+                var worksheet = workbook.Worksheets.Add("Sheet1");
 
-                worksheet.Cells["A1"].LoadFromText(csvFile, format);
+                for (int row = 0; row < lines.Length; row++)
+                {
+                    var columns = ParseCsvLine(lines[row]);
+                    for (int col = 0; col < columns.Length; col++)
+                    {
+                        worksheet.Cell(row + 1, col + 1).Value = columns[col];
+                    }
+                }
 
-                return await Task.FromResult(new MemoryStream(package.GetAsByteArray())).ConfigureAwait(true);
+                var outputStream = new MemoryStream();
+                workbook.SaveAs(outputStream);
+                outputStream.Position = 0;
+                return await Task.FromResult(outputStream).ConfigureAwait(true);
             }
+        }
+
+        private static string[] ParseCsvLine(string line)
+        {
+            var result = new System.Collections.Generic.List<string>();
+            var currentField = new StringBuilder();
+            bool inQuotes = false;
+
+            for (int i = 0; i < line.Length; i++)
+            {
+                char c = line[i];
+
+                if (c == '"')
+                {
+                    if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                    {
+                        currentField.Append('"');
+                        i++;
+                    }
+                    else
+                    {
+                        inQuotes = !inQuotes;
+                    }
+                }
+                else if (c == ',' && !inQuotes)
+                {
+                    result.Add(currentField.ToString());
+                    currentField.Clear();
+                }
+                else
+                {
+                    currentField.Append(c);
+                }
+            }
+            result.Add(currentField.ToString());
+
+            return result.ToArray();
         }
         public IImmutableList<ConvertorDetails> GetConvertorsForFile(string inputFileName)
         {
