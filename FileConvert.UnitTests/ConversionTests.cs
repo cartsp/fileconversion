@@ -36,7 +36,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 1);
+            Assert.True(result.Count == 2);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -52,7 +52,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(27, result.Count);
+            Assert.Equal(30, result.Count);
         }
 
         [Fact]
@@ -308,7 +308,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 3);
+            Assert.True(result.Count == 4);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -738,6 +738,178 @@ namespace FileConvert.UnitTests
         }
 
         #endregion TSV to CSV tests
+
+        #region CSV to JSON tests
+
+        [Fact]
+        public async Task TestConvertingCSVToJSON()
+        {
+            //Arrange
+            MemoryStream csvStream = ConvertFileToMemoryStream("Documents/test-data.csv");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.csv)
+                                        .ThatConvertTo(FileExtension.json)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(csvStream);
+
+            //Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var jsonContent = await reader.ReadToEndAsync();
+            Assert.Contains("Name", jsonContent);
+            Assert.Contains("Age", jsonContent);
+            Assert.Contains("City", jsonContent);
+            Assert.Contains("Alice", jsonContent);
+            Assert.Contains("Bob", jsonContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingCSVToJSONReturnsStream()
+        {
+            //Arrange
+            MemoryStream csvStream = ConvertFileToMemoryStream("Documents/test-data.csv");
+
+            //Act
+            var result = await conversionService.ConvertCSVToJSON(csvStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".json")]
+        public void TestAvailableConversionsForCSVToJSON(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.csv";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion CSV to JSON tests
+
+        #region JSON to CSV tests
+
+        [Fact]
+        public async Task TestConvertingJSONToCSV()
+        {
+            //Arrange
+            MemoryStream jsonStream = ConvertFileToMemoryStream("Documents/test-array.json");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.json)
+                                        .ThatConvertTo(FileExtension.csv)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(jsonStream);
+
+            //Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var csvContent = await reader.ReadToEndAsync();
+            Assert.Contains("Name", csvContent);
+            Assert.Contains("Age", csvContent);
+            Assert.Contains("Alice", csvContent);
+            Assert.Contains("Bob", csvContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingJSONToCSVReturnsStream()
+        {
+            //Arrange
+            MemoryStream jsonStream = ConvertFileToMemoryStream("Documents/test-array.json");
+
+            //Act
+            var result = await conversionService.ConvertJSONToCSV(jsonStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".csv")]
+        public void TestAvailableConversionsForJSONToCSV(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.json";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion JSON to CSV tests
+
+        #region HTML to Text tests
+
+        [Fact]
+        public async Task TestConvertingHTMLToText()
+        {
+            //Arrange
+            MemoryStream htmlStream = ConvertFileToMemoryStream("Documents/test.html");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.html)
+                                        .ThatConvertTo(FileExtension.txt)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(htmlStream);
+
+            //Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var textContent = await reader.ReadToEndAsync();
+            Assert.Contains("Hello World", textContent);
+            Assert.DoesNotContain("<html>", textContent);
+            Assert.DoesNotContain("<body>", textContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingHTMLToTextReturnsStream()
+        {
+            //Arrange
+            MemoryStream htmlStream = ConvertFileToMemoryStream("Documents/test.html");
+
+            //Act
+            var result = await conversionService.ConvertHTMLToText(htmlStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".txt")]
+        public void TestAvailableConversionsForHTML(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.html";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 1);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion HTML to Text tests
 
         #region Helper Methods
         private static MemoryStream ConvertFileToMemoryStream(String FileName)
