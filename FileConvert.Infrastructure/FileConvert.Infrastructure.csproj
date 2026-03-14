@@ -25,6 +25,7 @@
     <PackageReference Include="QRCoder" Version="1.6.0" />
     <PackageReference Include="ZXing.Net" Version="0.16.9" />
     <PackageReference Include="ZXing.Net.Bindings.SkiaSharp" Version="0.16.13" />
+    <PackageReference Include="VersOne.Epub" Version="3.3.3" />
   </ItemGroup>
 
   <ItemGroup>

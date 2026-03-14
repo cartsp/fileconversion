@@ -55,7 +55,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(93, result.Count);
+            Assert.Equal(96, result.Count);
         }
 
         [Fact]
@@ -362,6 +362,7 @@ namespace FileConvert.UnitTests
 
         [Theory]
         [InlineData(".html")]
+        [InlineData(".pdf")]
         public void TestAvailableConversionsForMarkdown(string conversionAvailable)
         {
             //Arrange
@@ -372,7 +373,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 1);
+            Assert.True(result.Count == 2);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -2605,6 +2606,143 @@ namespace FileConvert.UnitTests
         }
 
         #endregion JPEG 2000 (JP2/J2K) Conversion Tests
+
+        #region Markdown to PDF Conversion Tests
+
+        [Fact]
+        public async Task TestConvertingMarkdownToPdf()
+        {
+            //Arrange
+            MemoryStream mdStream = ConvertFileToMemoryStream("Documents/test.md");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.md)
+                                        .ThatConvertTo(FileExtension.pdf)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(mdStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            result.Position = 0;
+            var reader = new StreamReader(result, leaveOpen: true);
+            var header = reader.ReadLine();
+            Assert.StartsWith("%PDF", header);
+        }
+
+        [Fact]
+        public async Task TestConvertingMarkdownToPdfReturnsStream()
+        {
+            //Arrange
+            MemoryStream mdStream = ConvertFileToMemoryStream("Documents/test.md");
+
+            //Act
+            var result = await conversionService.ConvertMarkdownToPdf(mdStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+            Assert.True(result.Length > 0);
+        }
+
+        #endregion Markdown to PDF Conversion Tests
+
+        #region EPUB Conversion Tests
+
+        [Fact]
+        public async Task TestConvertingEpubToPdf()
+        {
+            //Arrange
+            MemoryStream epubStream = ConvertFileToMemoryStream("Documents/test.epub");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.epub)
+                                        .ThatConvertTo(FileExtension.pdf)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(epubStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            result.Position = 0;
+            var reader = new StreamReader(result, leaveOpen: true);
+            var header = reader.ReadLine();
+            Assert.StartsWith("%PDF", header);
+        }
+
+        [Fact]
+        public async Task TestConvertingEpubToPdfReturnsStream()
+        {
+            //Arrange
+            MemoryStream epubStream = ConvertFileToMemoryStream("Documents/test.epub");
+
+            //Act
+            var result = await conversionService.ConvertEpubToPdf(epubStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+            Assert.True(result.Length > 0);
+        }
+
+        [Fact]
+        public async Task TestConvertingEpubToTxt()
+        {
+            //Arrange
+            MemoryStream epubStream = ConvertFileToMemoryStream("Documents/test.epub");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.epub)
+                                        .ThatConvertTo(FileExtension.txt)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(epubStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var textContent = await reader.ReadToEndAsync();
+            Assert.Contains("Test Chapter", textContent);
+            Assert.Contains("test EPUB file", textContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingEpubToTxtReturnsStream()
+        {
+            //Arrange
+            MemoryStream epubStream = ConvertFileToMemoryStream("Documents/test.epub");
+
+            //Act
+            var result = await conversionService.ConvertEpubToTxt(epubStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+            Assert.True(result.Length > 0);
+        }
+
+        [Theory]
+        [InlineData(".pdf")]
+        [InlineData(".txt")]
+        public void TestAvailableConversionsForEpub(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.epub";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 2);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion EPUB Conversion Tests
 
         #region Helper Methods
         private static MemoryStream ConvertFileToMemoryStream(String FileName)
