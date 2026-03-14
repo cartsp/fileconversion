@@ -16,10 +16,10 @@ A Blazor WebAssembly application for secure, client-side file conversion. All co
 ### Cross-Platform Support
 
 This application is designed to run on:
-- **WebAssembly** (all modern browsers)
-- **Linux** (via CI/CD)
-- **macOS** (via CI/CD)
-- **Windows** (via CI/CD)
+- **WebAssembly** (all modern browsers) - primary deployment target
+- **Linux, macOS, Windows** - supported for local development
+
+Since the app runs in the browser via WebAssembly, CI only runs on `ubuntu-latest`.
 
 ### Dependencies
 
@@ -37,10 +37,9 @@ This application is designed to run on:
 
 ## CI/CD
 
-The GitHub Actions workflow runs on all three major platforms:
-- `ubuntu-latest`
-- `windows-latest`
-- `macos-latest`
+The GitHub Actions workflow runs on `ubuntu-latest` with:
+- Playwright browser caching for faster CI runs
+- Proper error handling for server startup
 
 ### Running Tests Locally
 

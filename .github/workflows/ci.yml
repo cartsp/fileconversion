@@ -37,6 +37,7 @@ jobs:
           restore-keys: playwright-
 
       - name: Setup Playwright
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: |
           dotnet tool install --global Microsoft.Playwright.CLI
           playwright install chromium
