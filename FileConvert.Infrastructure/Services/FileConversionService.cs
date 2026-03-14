@@ -47,6 +47,7 @@ namespace FileConvert.Infrastructure
         private static readonly Regex MultipleBlankLinesRegex = new(@"\r\n\s*\r\n", RegexOptions.Compiled);
         private static readonly Regex HorizontalWhitespaceRegex = new(@"[ \t]+", RegexOptions.Compiled);
         private const int StreamBufferSize = 4096;
+        private const int DefaultZipCompressionLevel = 6; // Balanced compression/speed
         private static readonly HashSet<string> BlockElements = new(StringComparer.OrdinalIgnoreCase)
         {
             "p", "div", "br", "h1", "h2", "h3", "h4", "h5", "h6", "li", "tr"
@@ -132,9 +133,11 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tif, FileExtension.png, ConvertTiffToPng));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tif, FileExtension.jpg, ConvertTiffToJpg));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tif, FileExtension.jpeg, ConvertTiffToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tif, FileExtension.webp, ConvertTiffToWebP));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tiff, FileExtension.png, ConvertTiffToPng));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tiff, FileExtension.jpg, ConvertTiffToJpg));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tiff, FileExtension.jpeg, ConvertTiffToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tiff, FileExtension.webp, ConvertTiffToWebP));
 
             // TSV → JSON conversion
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tsv, FileExtension.json, ConvertTSVToJSON));
@@ -170,6 +173,9 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tar, FileExtension.tgz, ConvertTarToGz));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.bz2, FileExtension.tar, ConvertBz2ToTar));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tbz2, FileExtension.tar, ConvertBz2ToTar));
+            // ZIP ↔ TAR conversions - ZIP is the most common archive format
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.zip, FileExtension.tar, ConvertZipToTar));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tar, FileExtension.zip, ConvertTarToZip));
 
             // Image to PDF conversions - very high value for users
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.png, FileExtension.pdf, ConvertImageToPdf));
@@ -318,6 +324,22 @@ namespace FileConvert.Infrastructure
             using (ImageSharpImage image = ImageSharpImage.Load(TiffStream.ToArray()))
             {
                 image.SaveAsJpeg(outputStream, CachedJpegEncoder80);
+            }
+
+            return await Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Converts a TIFF image to WebP format.
+        /// </summary>
+        public async Task<MemoryStream> ConvertTiffToWebP(MemoryStream tiffStream)
+        {
+            tiffStream.Position = 0;
+            MemoryStream outputStream = new MemoryStream();
+
+            using (ImageSharpImage image = ImageSharpImage.Load(tiffStream.ToArray()))
+            {
+                image.SaveAsWebp(outputStream);
             }
 
             return await Task.FromResult(outputStream);
@@ -1162,6 +1184,87 @@ namespace FileConvert.Infrastructure
             {
                 var buffer = new byte[StreamBufferSize];
                 StreamUtils.Copy(bzip2Stream, outputStream, buffer);
+            }
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Converts a ZIP archive to TAR format.
+        /// Extracts all entries from the ZIP and repackages them into a TAR archive.
+        /// </summary>
+        public Task<MemoryStream> ConvertZipToTar(MemoryStream zipStream)
+        {
+            var outputStream = new MemoryStream();
+            zipStream.Position = 0;
+            var buffer = new byte[StreamBufferSize];
+
+            using (var zipFile = new ZipFile(zipStream))
+            using (var tarOutputStream = new TarOutputStream(outputStream, System.Text.Encoding.UTF8))
+            {
+                tarOutputStream.IsStreamOwner = false;
+
+                foreach (ZipEntry zipEntry in zipFile)
+                {
+                    if (zipEntry.IsDirectory)
+                        continue;
+
+                    var tarEntry = TarEntry.CreateTarEntry(zipEntry.Name);
+                    tarEntry.Size = zipEntry.Size;
+
+                    if (zipEntry.DateTime != DateTime.MinValue)
+                    {
+                        tarEntry.ModTime = zipEntry.DateTime;
+                    }
+
+                    tarOutputStream.PutNextEntry(tarEntry);
+
+                    using (var zipInputStream = zipFile.GetInputStream(zipEntry))
+                    {
+                        StreamUtils.Copy(zipInputStream, tarOutputStream, buffer);
+                    }
+
+                    tarOutputStream.CloseEntry();
+                }
+            }
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Converts a TAR archive to ZIP format.
+        /// Extracts all entries from the TAR and repackages them into a ZIP archive.
+        /// </summary>
+        public Task<MemoryStream> ConvertTarToZip(MemoryStream tarStream)
+        {
+            var outputStream = new MemoryStream();
+            tarStream.Position = 0;
+            var buffer = new byte[StreamBufferSize];
+
+            using (var tarInputStream = new TarInputStream(tarStream, System.Text.Encoding.UTF8))
+            using (var zipOutputStream = new ZipOutputStream(outputStream))
+            {
+                zipOutputStream.IsStreamOwner = false;
+                zipOutputStream.SetLevel(DefaultZipCompressionLevel);
+
+                TarEntry tarEntry;
+                while ((tarEntry = tarInputStream.GetNextEntry()) != null)
+                {
+                    if (tarEntry.IsDirectory)
+                        continue;
+
+                    var zipEntry = new ZipEntry(tarEntry.Name)
+                    {
+                        DateTime = tarEntry.ModTime,
+                        Size = tarEntry.Size
+                    };
+
+                    zipOutputStream.PutNextEntry(zipEntry);
+                    StreamUtils.Copy(tarInputStream, zipOutputStream, buffer);
+                    zipOutputStream.CloseEntry();
+                }
             }
 
             outputStream.Position = 0;
