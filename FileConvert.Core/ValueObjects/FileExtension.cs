@@ -20,7 +20,10 @@ namespace FileConvert.Core.ValueObjects
         public static FileExtension mp3 { get { return new FileExtension(".mp3"); } }
         public static FileExtension wav { get { return new FileExtension(".wav"); } }
         public static FileExtension html { get { return new FileExtension(".html"); } }
+        public static FileExtension md { get { return new FileExtension(".md"); } }
         public static FileExtension tif { get { return new FileExtension(".tif"); } }
+        public static FileExtension json { get { return new FileExtension(".json"); } }
+        public static FileExtension xml { get { return new FileExtension(".xml"); } }
 
         public static implicit operator string(FileExtension value)
         {
