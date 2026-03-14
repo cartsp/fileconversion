@@ -44,6 +44,11 @@ namespace FileConvert.Core.ValueObjects
         public static FileExtension jp2 { get { return new FileExtension(".jp2"); } }
         public static FileExtension j2k { get { return new FileExtension(".j2k"); } }
         public static FileExtension epub { get { return new FileExtension(".epub"); } }
+        public static FileExtension heic { get { return new FileExtension(".heic"); } }
+        public static FileExtension heif { get { return new FileExtension(".heif"); } }
+        public static FileExtension avif { get { return new FileExtension(".avif"); } }
+        public static FileExtension jxl { get { return new FileExtension(".jxl"); } }
+        public static FileExtension dng { get { return new FileExtension(".dng"); } }
 
         public static implicit operator string(FileExtension value)
         {

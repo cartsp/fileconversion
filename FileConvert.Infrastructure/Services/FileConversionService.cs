@@ -288,6 +288,34 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.epub, FileExtension.pdf, ConvertEpubToPdf));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.epub, FileExtension.txt, ConvertEpubToTxt));
 
+            // HEIC/HEIF conversions - iPhone photo format (HIGH VALUE)
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.heic, FileExtension.jpg, ConvertHeicToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.heic, FileExtension.jpeg, ConvertHeicToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.heic, FileExtension.png, ConvertHeicToPng));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.heic, FileExtension.webp, ConvertHeicToWebp));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.heif, FileExtension.jpg, ConvertHeicToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.heif, FileExtension.jpeg, ConvertHeicToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.heif, FileExtension.png, ConvertHeicToPng));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.heif, FileExtension.webp, ConvertHeicToWebp));
+
+            // AVIF conversions - modern image format
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.avif, FileExtension.jpg, ConvertAvifToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.avif, FileExtension.jpeg, ConvertAvifToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.avif, FileExtension.png, ConvertAvifToPng));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.avif, FileExtension.webp, ConvertAvifToWebp));
+
+            // JPEG XL (JXL) conversions - next-gen image format
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jxl, FileExtension.jpg, ConvertJxlToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jxl, FileExtension.jpeg, ConvertJxlToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jxl, FileExtension.png, ConvertJxlToPng));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jxl, FileExtension.webp, ConvertJxlToWebp));
+
+            // DNG conversions - Adobe Digital Negative raw format
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.dng, FileExtension.jpg, ConvertDngToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.dng, FileExtension.jpeg, ConvertDngToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.dng, FileExtension.png, ConvertDngToPng));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.dng, FileExtension.webp, ConvertDngToWebp));
+
             Convertors = ConvertorListBuilder.ToImmutable();
         }
 
@@ -1249,7 +1277,19 @@ namespace FileConvert.Infrastructure
             using (var gzipStream = new GZipInputStream(gzStream))
             {
                 var buffer = new byte[StreamBufferSize];
-                StreamUtils.Copy(gzipStream, outputStream, buffer);
+
+                // Security: Track total bytes written to prevent decompression bombs
+                long totalBytesWritten = 0;
+                int bytesRead;
+                while ((bytesRead = gzipStream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    // Security: Check cumulative size to prevent decompression bombs
+                    totalBytesWritten += bytesRead;
+                    if (totalBytesWritten > MaxTotalUncompressedSize)
+                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+
+                    outputStream.Write(buffer, 0, bytesRead);
+                }
             }
 
             outputStream.Position = 0;
@@ -1286,7 +1326,19 @@ namespace FileConvert.Infrastructure
             using (var bzip2Stream = new ICSharpCode.SharpZipLib.BZip2.BZip2InputStream(bz2Stream))
             {
                 var buffer = new byte[StreamBufferSize];
-                StreamUtils.Copy(bzip2Stream, outputStream, buffer);
+
+                // Security: Track total bytes written to prevent decompression bombs
+                long totalBytesWritten = 0;
+                int bytesRead;
+                while ((bytesRead = bzip2Stream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    // Security: Check cumulative size to prevent decompression bombs
+                    totalBytesWritten += bytesRead;
+                    if (totalBytesWritten > MaxTotalUncompressedSize)
+                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+
+                    outputStream.Write(buffer, 0, bytesRead);
+                }
             }
 
             outputStream.Position = 0;
@@ -1302,18 +1354,39 @@ namespace FileConvert.Infrastructure
             var outputStream = new MemoryStream();
             zipStream.Position = 0;
             var buffer = new byte[StreamBufferSize];
+            long totalExtractedSize = 0;
 
             using (var zipFile = new ZipFile(zipStream))
             using (var tarOutputStream = new TarOutputStream(outputStream, System.Text.Encoding.UTF8))
             {
                 tarOutputStream.IsStreamOwner = false;
 
+                var entries = new List<ZipEntry>();
                 foreach (ZipEntry zipEntry in zipFile)
                 {
-                    if (zipEntry.IsDirectory)
-                        continue;
+                    if (!zipEntry.IsDirectory)
+                        entries.Add(zipEntry);
+                }
 
-                    var tarEntry = TarEntry.CreateTarEntry(zipEntry.Name);
+                // Security: Check entry count to prevent decompression bombs
+                if (entries.Count > MaxEntryCount)
+                    throw new InvalidOperationException("Archive contains too many entries");
+
+                foreach (var zipEntry in entries)
+                {
+                    // Security: Check entry size to prevent decompression bombs
+                    if (zipEntry.Size > MaxUncompressedSize)
+                        throw new InvalidOperationException($"Entry '{zipEntry.Name}' exceeds maximum allowed size");
+
+                    // Security: Track cumulative size to prevent decompression bombs
+                    totalExtractedSize += zipEntry.Size;
+                    if (totalExtractedSize > MaxTotalUncompressedSize)
+                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+
+                    // Security: Sanitize entry path to prevent path traversal
+                    var sanitizedName = SanitizeArchiveEntryPath(zipEntry.Name);
+
+                    var tarEntry = TarEntry.CreateTarEntry(sanitizedName);
                     tarEntry.Size = zipEntry.Size;
 
                     if (zipEntry.DateTime != DateTime.MinValue)
@@ -1345,6 +1418,8 @@ namespace FileConvert.Infrastructure
             var outputStream = new MemoryStream();
             tarStream.Position = 0;
             var buffer = new byte[StreamBufferSize];
+            long totalExtractedSize = 0;
+            int entryCount = 0;
 
             using (var tarInputStream = new TarInputStream(tarStream, System.Text.Encoding.UTF8))
             using (var zipOutputStream = new ZipOutputStream(outputStream))
@@ -1358,7 +1433,24 @@ namespace FileConvert.Infrastructure
                     if (tarEntry.IsDirectory)
                         continue;
 
-                    var zipEntry = new ZipEntry(tarEntry.Name)
+                    // Security: Check entry count to prevent decompression bombs
+                    entryCount++;
+                    if (entryCount > MaxEntryCount)
+                        throw new InvalidOperationException("Archive contains too many entries");
+
+                    // Security: Check entry size to prevent decompression bombs
+                    if (tarEntry.Size > MaxUncompressedSize)
+                        throw new InvalidOperationException($"Entry '{tarEntry.Name}' exceeds maximum allowed size");
+
+                    // Security: Track cumulative size to prevent decompression bombs
+                    totalExtractedSize += tarEntry.Size;
+                    if (totalExtractedSize > MaxTotalUncompressedSize)
+                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+
+                    // Security: Sanitize entry path to prevent path traversal
+                    var sanitizedName = SanitizeArchiveEntryPath(tarEntry.Name);
+
+                    var zipEntry = new ZipEntry(sanitizedName)
                     {
                         DateTime = tarEntry.ModTime,
                         Size = tarEntry.Size
@@ -2162,6 +2254,98 @@ namespace FileConvert.Infrastructure
 
         #endregion
 
+        #region HEIC/HEIF Conversions
+
+        /// <summary>
+        /// Converts a HEIC/HEIF image to JPG format using SkiaSharp.
+        /// HEIC is the High Efficiency Image Format used by iPhones.
+        /// </summary>
+        public Task<MemoryStream> ConvertHeicToJpg(MemoryStream heicStream) =>
+            ConvertModernImageFormat(heicStream, SKEncodedImageFormat.Jpeg, 90, "HEIC/HEIF");
+
+        /// <summary>
+        /// Converts a HEIC/HEIF image to PNG format using SkiaSharp.
+        /// </summary>
+        public Task<MemoryStream> ConvertHeicToPng(MemoryStream heicStream) =>
+            ConvertModernImageFormat(heicStream, SKEncodedImageFormat.Png, 0, "HEIC/HEIF");
+
+        /// <summary>
+        /// Converts a HEIC/HEIF image to WebP format using SkiaSharp.
+        /// </summary>
+        public Task<MemoryStream> ConvertHeicToWebp(MemoryStream heicStream) =>
+            ConvertModernImageFormat(heicStream, SKEncodedImageFormat.Webp, 90, "HEIC/HEIF");
+
+        #endregion
+
+        #region AVIF Conversions
+
+        /// <summary>
+        /// Converts an AVIF image to JPG format using SkiaSharp.
+        /// AVIF is a modern image format with superior compression.
+        /// </summary>
+        public Task<MemoryStream> ConvertAvifToJpg(MemoryStream avifStream) =>
+            ConvertModernImageFormat(avifStream, SKEncodedImageFormat.Jpeg, 90, "AVIF");
+
+        /// <summary>
+        /// Converts an AVIF image to PNG format using SkiaSharp.
+        /// </summary>
+        public Task<MemoryStream> ConvertAvifToPng(MemoryStream avifStream) =>
+            ConvertModernImageFormat(avifStream, SKEncodedImageFormat.Png, 0, "AVIF");
+
+        /// <summary>
+        /// Converts an AVIF image to WebP format using SkiaSharp.
+        /// </summary>
+        public Task<MemoryStream> ConvertAvifToWebp(MemoryStream avifStream) =>
+            ConvertModernImageFormat(avifStream, SKEncodedImageFormat.Webp, 90, "AVIF");
+
+        #endregion
+
+        #region JPEG XL Conversions
+
+        /// <summary>
+        /// Converts a JPEG XL (JXL) image to JPG format using SkiaSharp.
+        /// JPEG XL is a next-generation image format with excellent compression.
+        /// </summary>
+        public Task<MemoryStream> ConvertJxlToJpg(MemoryStream jxlStream) =>
+            ConvertModernImageFormat(jxlStream, SKEncodedImageFormat.Jpeg, 90, "JPEG XL");
+
+        /// <summary>
+        /// Converts a JPEG XL (JXL) image to PNG format using SkiaSharp.
+        /// </summary>
+        public Task<MemoryStream> ConvertJxlToPng(MemoryStream jxlStream) =>
+            ConvertModernImageFormat(jxlStream, SKEncodedImageFormat.Png, 0, "JPEG XL");
+
+        /// <summary>
+        /// Converts a JPEG XL (JXL) image to WebP format using SkiaSharp.
+        /// </summary>
+        public Task<MemoryStream> ConvertJxlToWebp(MemoryStream jxlStream) =>
+            ConvertModernImageFormat(jxlStream, SKEncodedImageFormat.Webp, 90, "JPEG XL");
+
+        #endregion
+
+        #region DNG Conversions
+
+        /// <summary>
+        /// Converts a DNG (Adobe Digital Negative) raw image to JPG format using SkiaSharp.
+        /// DNG is a raw image format used by various digital cameras.
+        /// </summary>
+        public Task<MemoryStream> ConvertDngToJpg(MemoryStream dngStream) =>
+            ConvertModernImageFormat(dngStream, SKEncodedImageFormat.Jpeg, 90, "DNG");
+
+        /// <summary>
+        /// Converts a DNG (Adobe Digital Negative) raw image to PNG format using SkiaSharp.
+        /// </summary>
+        public Task<MemoryStream> ConvertDngToPng(MemoryStream dngStream) =>
+            ConvertModernImageFormat(dngStream, SKEncodedImageFormat.Png, 0, "DNG");
+
+        /// <summary>
+        /// Converts a DNG (Adobe Digital Negative) raw image to WebP format using SkiaSharp.
+        /// </summary>
+        public Task<MemoryStream> ConvertDngToWebp(MemoryStream dngStream) =>
+            ConvertModernImageFormat(dngStream, SKEncodedImageFormat.Webp, 90, "DNG");
+
+        #endregion
+
         #region Helper Methods
 
         private static string EscapeCsvField(string field)
@@ -2182,6 +2366,55 @@ namespace FileConvert.Infrastructure
             }
             outputStream.Position = 0;
             return outputStream;
+        }
+
+        /// <summary>
+        /// Converts a modern image format (HEIC, AVIF, JXL, DNG) to a standard format using SkiaSharp.
+        /// Centralizes conversion logic to avoid code duplication and ensure consistent error handling.
+        ///
+        /// SkiaSharp 3.116.1+ supports these formats natively:
+        /// - HEIF/HEIC: Added in v1.68.1 (SKEncodedImageFormat.Heif)
+        /// - AVIF: Added in v2.88.1 (SKEncodedImageFormat.Avif)
+        /// - DNG: Added in v1.53.0 (SKEncodedImageFormat.Dng)
+        /// - JPEG XL: Added in v3.0.0 (SKEncodedImageFormat.Jpegxl)
+        /// </summary>
+        /// <param name="inputStream">The input image stream</param>
+        /// <param name="targetFormat">The target encoded image format (Jpeg, Png, Webp)</param>
+        /// <param name="quality">Encoding quality (0-100). For PNG, this is ignored so use 0.</param>
+        /// <param name="formatName">Human-readable format name for error messages</param>
+        /// <returns>A memory stream containing the converted image</returns>
+        private Task<MemoryStream> ConvertModernImageFormat(MemoryStream inputStream, SKEncodedImageFormat targetFormat, int quality, string formatName)
+        {
+            // Validate input size to prevent memory exhaustion
+            if (inputStream.Length > MaxUncompressedSize)
+                throw new InvalidOperationException($"Input image exceeds maximum allowed size of {MaxUncompressedSize / (1024 * 1024)}MB");
+
+            inputStream.Position = 0;
+
+            SKBitmap bitmap;
+            try
+            {
+                // Use stream directly to avoid unnecessary memory allocation from ToArray()
+                bitmap = SKBitmap.Decode(inputStream);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to decode {formatName} image: {ex.Message}", ex);
+            }
+
+            if (bitmap == null)
+                throw new InvalidOperationException($"Failed to decode {formatName} image. The format may not be supported on this platform.");
+
+            using (bitmap)
+            {
+                using var image = SKImage.FromBitmap(bitmap);
+                using var data = image.Encode(targetFormat, quality);
+
+                var outputStream = new MemoryStream();
+                data.SaveTo(outputStream);
+                outputStream.Position = 0;
+                return Task.FromResult(outputStream);
+            }
         }
 
         #endregion
