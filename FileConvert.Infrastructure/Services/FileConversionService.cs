@@ -1,4 +1,5 @@
 using FileConvert.Core;
+using System;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,12 +15,21 @@ using System.Globalization;
 using System.Text.Json;
 using System.Xml.Linq;
 using Markdig;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace FileConvert.Infrastructure
 {
     public class FileConversionService : IFileConvertors
     {
         private static readonly MarkdownPipeline CachedMarkdownPipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+        private static readonly JsonSerializerOptions CachedJsonOptions = new JsonSerializerOptions { WriteIndented = true };
+        private static readonly IDeserializer CachedYamlDeserializer = new DeserializerBuilder()
+            .WithNamingConvention(UnderscoredNamingConvention.Instance)
+            .Build();
+        private static readonly ISerializer CachedYamlSerializer = new SerializerBuilder()
+            .WithNamingConvention(UnderscoredNamingConvention.Instance)
+            .Build();
         private static IImmutableList<ConvertorDetails> Convertors = ImmutableList<ConvertorDetails>.Empty;
 
         static FileConversionService()
@@ -67,6 +77,15 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.json, FileExtension.xml, ConvertJSONToXML));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.xml, FileExtension.json, ConvertXMLToJSON));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.md, FileExtension.html, ConvertMarkdownToHTML));
+            // YAML ↔ JSON conversions
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.yaml, FileExtension.json, ConvertYAMLToJSON));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.yml, FileExtension.json, ConvertYAMLToJSON));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.json, FileExtension.yaml, ConvertJSONToYAML));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.json, FileExtension.yml, ConvertJSONToYAML));
+            // XLSX → JSON conversion
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.xlsx, FileExtension.json, ConvertXLSXToJSON));
+            // TSV → CSV conversion
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tsv, FileExtension.csv, ConvertTSVToCSV));
 
             Convertors = ConvertorListBuilder.ToImmutable();
         }
@@ -200,12 +219,7 @@ namespace FileConvert.Infrastructure
                     for (int col = 1; col <= colCount; col++)
                     {
                         var cellValue = worksheet.Cells[row, col].Value?.ToString() ?? "";
-                        // Escape quotes and wrap in quotes if contains comma or quote
-                        if (cellValue.Contains(',') || cellValue.Contains('"'))
-                        {
-                            cellValue = "\"" + cellValue.Replace("\"", "\"\"") + "\"";
-                        }
-                        rowValues.Add(cellValue);
+                        rowValues.Add(EscapeCsvField(cellValue));
                     }
                     writer.WriteLine(string.Join(",", rowValues));
                 }
@@ -241,19 +255,7 @@ namespace FileConvert.Infrastructure
 
             var jsonResult = ConvertXmlElementToJson(xdoc.Root);
 
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true
-            };
-
-            var outputStream = new MemoryStream();
-            using (var writer = new StreamWriter(outputStream, Encoding.UTF8, leaveOpen: true))
-            {
-                writer.Write(JsonSerializer.Serialize(jsonResult, options));
-            }
-            outputStream.Position = 0;
-
-            return await Task.FromResult(outputStream);
+            return await WriteStringToStreamAsync(JsonSerializer.Serialize(jsonResult, CachedJsonOptions));
         }
 
         private Dictionary<string, object> ConvertXmlElementToJson(XElement element)
@@ -327,6 +329,158 @@ namespace FileConvert.Infrastructure
             return await Task.FromResult(outputStream);
         }
 
+        public async Task<MemoryStream> ConvertYAMLToJSON(MemoryStream YAMLStream)
+        {
+            var yamlContent = Encoding.UTF8.GetString(YAMLStream.ToArray());
+            var yamlObject = CachedYamlDeserializer.Deserialize(yamlContent);
+            return await WriteStringToStreamAsync(JsonSerializer.Serialize(yamlObject, CachedJsonOptions));
+        }
+
+        public async Task<MemoryStream> ConvertJSONToYAML(MemoryStream JSONStream)
+        {
+            var jsonContent = Encoding.UTF8.GetString(JSONStream.ToArray());
+
+            using var jsonDoc = JsonDocument.Parse(jsonContent);
+            var root = jsonDoc.RootElement;
+
+            var yamlObject = ConvertJsonElementToYamlObject(root);
+            var yamlContent = CachedYamlSerializer.Serialize(yamlObject);
+
+            return await WriteStringToStreamAsync(yamlContent);
+        }
+
+        private object ConvertJsonElementToYamlObject(JsonElement element)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    var dict = new Dictionary<string, object>();
+                    foreach (var property in element.EnumerateObject())
+                    {
+                        dict[property.Name] = ConvertJsonElementToYamlObject(property.Value);
+                    }
+                    return dict;
+
+                case JsonValueKind.Array:
+                    var list = new List<object>();
+                    foreach (var item in element.EnumerateArray())
+                    {
+                        list.Add(ConvertJsonElementToYamlObject(item));
+                    }
+                    return list;
+
+                case JsonValueKind.String:
+                    return element.GetString() ?? string.Empty;
+
+                case JsonValueKind.Number:
+                    if (element.TryGetInt32(out int intValue))
+                        return intValue;
+                    if (element.TryGetInt64(out long longValue))
+                        return longValue;
+                    if (element.TryGetDouble(out double doubleValue))
+                        return doubleValue;
+                    return element.ToString();
+
+                case JsonValueKind.True:
+                    return true;
+
+                case JsonValueKind.False:
+                    return false;
+
+                case JsonValueKind.Null:
+                    return null;
+
+                default:
+                    return element.ToString();
+            }
+        }
+
+        public async Task<MemoryStream> ConvertXLSXToJSON(MemoryStream XLSXStream)
+        {
+            using var package = new ExcelPackage(XLSXStream);
+            var worksheet = package.Workbook.Worksheets[0];
+
+            var rowCount = worksheet.Dimension?.Rows ?? 0;
+            var colCount = worksheet.Dimension?.Columns ?? 0;
+
+            if (rowCount < 2 || colCount == 0)
+            {
+                return await WriteStringToStreamAsync("[]");
+            }
+
+            // Get headers from first row
+            var headers = new List<string>();
+            for (int col = 1; col <= colCount; col++)
+            {
+                headers.Add(worksheet.Cells[1, col].Value?.ToString() ?? $"Column{col}");
+            }
+
+            // Convert rows to list of dictionaries
+            var rows = new List<Dictionary<string, object>>();
+            for (int row = 2; row <= rowCount; row++)
+            {
+                var rowData = new Dictionary<string, object>();
+                for (int col = 1; col <= colCount; col++)
+                {
+                    var header = headers[col - 1];
+                    var cellValue = worksheet.Cells[row, col].Value;
+
+                    if (cellValue == null)
+                    {
+                        rowData[header] = null;
+                    }
+                    else if (cellValue is double doubleValue)
+                    {
+                        // Check if it's actually an integer
+                        if (doubleValue == Math.Truncate(doubleValue))
+                        {
+                            rowData[header] = (long)doubleValue;
+                        }
+                        else
+                        {
+                            rowData[header] = doubleValue;
+                        }
+                    }
+                    else if (cellValue is bool boolValue)
+                    {
+                        rowData[header] = boolValue;
+                    }
+                    else if (cellValue is DateTime dateTimeValue)
+                    {
+                        rowData[header] = dateTimeValue.ToString("o");
+                    }
+                    else
+                    {
+                        rowData[header] = cellValue.ToString();
+                    }
+                }
+                rows.Add(rowData);
+            }
+
+            return await WriteStringToStreamAsync(JsonSerializer.Serialize(rows, CachedJsonOptions));
+        }
+
+        public async Task<MemoryStream> ConvertTSVToCSV(MemoryStream TSVStream)
+        {
+            var tsvContent = Encoding.UTF8.GetString(TSVStream.ToArray());
+
+            var outputStream = new MemoryStream();
+            using (var writer = new StreamWriter(outputStream, Encoding.UTF8, leaveOpen: true))
+            {
+                using var reader = new StringReader(tsvContent);
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    var fields = line.Split('\t');
+                    var csvFields = fields.Select(EscapeCsvField);
+                    writer.WriteLine(string.Join(",", csvFields));
+                }
+            }
+            outputStream.Position = 0;
+
+            return await Task.FromResult(outputStream);
+        }
+
         private void ConvertJsonElementToXml(JsonElement jsonElement, XElement parent)
         {
             switch (jsonElement.ValueKind)
@@ -380,5 +534,29 @@ namespace FileConvert.Infrastructure
         {
             return Convertors;
         }
+
+        #region Helper Methods
+
+        private static string EscapeCsvField(string field)
+        {
+            if (field.Contains(',') || field.Contains('"'))
+            {
+                return "\"" + field.Replace("\"", "\"\"") + "\"";
+            }
+            return field;
+        }
+
+        private static async Task<MemoryStream> WriteStringToStreamAsync(string content)
+        {
+            var outputStream = new MemoryStream();
+            using (var writer = new StreamWriter(outputStream, Encoding.UTF8, leaveOpen: true))
+            {
+                await writer.WriteAsync(content);
+            }
+            outputStream.Position = 0;
+            return outputStream;
+        }
+
+        #endregion
     }
 }
