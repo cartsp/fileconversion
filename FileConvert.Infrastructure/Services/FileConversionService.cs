@@ -2,6 +2,7 @@ using FileConvert.Core;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using FileConvert.Core.Entities;
@@ -10,12 +11,16 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using FileConvert.Core.ValueObjects;
 using System.Globalization;
+using System.Text.Json;
+using System.Xml.Linq;
+using Markdig;
 
 namespace FileConvert.Infrastructure
 {
     public class FileConversionService : IFileConvertors
     {
-        static IImmutableList<ConvertorDetails> Convertors = ImmutableList<ConvertorDetails>.Empty;
+        private static readonly MarkdownPipeline CachedMarkdownPipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+        private static IImmutableList<ConvertorDetails> Convertors = ImmutableList<ConvertorDetails>.Empty;
 
         static FileConversionService()
         {
@@ -34,6 +39,7 @@ namespace FileConvert.Infrastructure
 
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.xls, ConvertCSVToExcel));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.xlsx, ConvertCSVToExcel));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.xlsx, FileExtension.csv, ConvertXLSXToCSV));
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.docx, FileExtension.html, ConvertDocToHTML));
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.docx, FileExtension.pdf, ConvertDocToPDF));
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.mp3, FileExtension.wav, ConvertMP3ToWav));
@@ -58,6 +64,9 @@ namespace FileConvert.Infrastructure
             //ConvertorListBuilder.Add(new ConvertorDetails(".gif", ".bmp", ConvertImageToBMP));
             //ConvertorListBuilder.Add(new ConvertorDetails(".jpg", ".bmp", ConvertImageToBMP));
             //ConvertorListBuilder.Add(new ConvertorDetails(".jpeg", ".bmp", ConvertImageToBMP));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.json, FileExtension.xml, ConvertJSONToXML));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.xml, FileExtension.json, ConvertXMLToJSON));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.md, FileExtension.html, ConvertMarkdownToHTML));
 
             Convertors = ConvertorListBuilder.ToImmutable();
         }
@@ -173,6 +182,195 @@ namespace FileConvert.Infrastructure
                 return await Task.FromResult(new MemoryStream(package.GetAsByteArray()));
             }
         }
+
+        public async Task<MemoryStream> ConvertXLSXToCSV(MemoryStream XLSXStream)
+        {
+            using var package = new ExcelPackage(XLSXStream);
+            var worksheet = package.Workbook.Worksheets[0];
+
+            var outputStream = new MemoryStream();
+            using (var writer = new StreamWriter(outputStream, Encoding.UTF8, leaveOpen: true))
+            {
+                var rowCount = worksheet.Dimension?.Rows ?? 0;
+                var colCount = worksheet.Dimension?.Columns ?? 0;
+
+                for (int row = 1; row <= rowCount; row++)
+                {
+                    var rowValues = new List<string>();
+                    for (int col = 1; col <= colCount; col++)
+                    {
+                        var cellValue = worksheet.Cells[row, col].Value?.ToString() ?? "";
+                        // Escape quotes and wrap in quotes if contains comma or quote
+                        if (cellValue.Contains(',') || cellValue.Contains('"'))
+                        {
+                            cellValue = "\"" + cellValue.Replace("\"", "\"\"") + "\"";
+                        }
+                        rowValues.Add(cellValue);
+                    }
+                    writer.WriteLine(string.Join(",", rowValues));
+                }
+            }
+            outputStream.Position = 0;
+
+            return await Task.FromResult(outputStream);
+        }
+
+        public async Task<MemoryStream> ConvertJSONToXML(MemoryStream JSONStream)
+        {
+            var jsonString = Encoding.UTF8.GetString(JSONStream.ToArray());
+            using var jsonDoc = JsonDocument.Parse(jsonString);
+            var root = jsonDoc.RootElement;
+
+            var xmlRoot = new XElement("Root");
+            ConvertJsonElementToXml(root, xmlRoot);
+
+            var outputStream = new MemoryStream();
+            using (var writer = new StreamWriter(outputStream, Encoding.UTF8, leaveOpen: true))
+            {
+                writer.Write(xmlRoot.ToString());
+            }
+            outputStream.Position = 0;
+
+            return await Task.FromResult(outputStream);
+        }
+
+        public async Task<MemoryStream> ConvertXMLToJSON(MemoryStream XMLStream)
+        {
+            var xmlString = Encoding.UTF8.GetString(XMLStream.ToArray());
+            var xdoc = XDocument.Parse(xmlString);
+
+            var jsonResult = ConvertXmlElementToJson(xdoc.Root);
+
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true
+            };
+
+            var outputStream = new MemoryStream();
+            using (var writer = new StreamWriter(outputStream, Encoding.UTF8, leaveOpen: true))
+            {
+                writer.Write(JsonSerializer.Serialize(jsonResult, options));
+            }
+            outputStream.Position = 0;
+
+            return await Task.FromResult(outputStream);
+        }
+
+        private Dictionary<string, object> ConvertXmlElementToJson(XElement element)
+        {
+            var result = new Dictionary<string, object>();
+
+            if (element == null)
+                return result;
+
+            // If element has no child elements, return its value directly
+            if (!element.HasElements)
+            {
+                result[element.Name.LocalName] = element.Value;
+                return result;
+            }
+
+            // Group child elements by name to handle arrays
+            var childGroups = element.Elements().GroupBy(e => e.Name.LocalName);
+
+            foreach (var group in childGroups)
+            {
+                var childElements = group.ToList();
+
+                if (childElements.Count == 1)
+                {
+                    // Single element
+                    var child = childElements[0];
+                    if (child.HasElements)
+                    {
+                        result[group.Key] = ConvertXmlElementToJson(child);
+                    }
+                    else
+                    {
+                        result[group.Key] = child.Value;
+                    }
+                }
+                else
+                {
+                    // Multiple elements - treat as array
+                    var array = new List<object>();
+                    foreach (var child in childElements)
+                    {
+                        if (child.HasElements)
+                        {
+                            array.Add(ConvertXmlElementToJson(child));
+                        }
+                        else
+                        {
+                            array.Add(child.Value);
+                        }
+                    }
+                    result[group.Key] = array;
+                }
+            }
+
+            return result;
+        }
+
+        public async Task<MemoryStream> ConvertMarkdownToHTML(MemoryStream MarkdownStream)
+        {
+            var markdownContent = Encoding.UTF8.GetString(MarkdownStream.ToArray());
+            var htmlContent = Markdown.ToHtml(markdownContent, CachedMarkdownPipeline);
+
+            var outputStream = new MemoryStream();
+            using (var writer = new StreamWriter(outputStream, Encoding.UTF8, leaveOpen: true))
+            {
+                writer.Write(htmlContent);
+            }
+            outputStream.Position = 0;
+
+            return await Task.FromResult(outputStream);
+        }
+
+        private void ConvertJsonElementToXml(JsonElement jsonElement, XElement parent)
+        {
+            switch (jsonElement.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    foreach (var property in jsonElement.EnumerateObject())
+                    {
+                        var element = new XElement(property.Name);
+                        parent.Add(element);
+                        ConvertJsonElementToXml(property.Value, element);
+                    }
+                    break;
+
+                case JsonValueKind.Array:
+                    foreach (var item in jsonElement.EnumerateArray())
+                    {
+                        var element = new XElement("Item");
+                        parent.Add(element);
+                        ConvertJsonElementToXml(item, element);
+                    }
+                    break;
+
+                case JsonValueKind.String:
+                    parent.Value = jsonElement.GetString() ?? string.Empty;
+                    break;
+
+                case JsonValueKind.Number:
+                    parent.Value = jsonElement.ToString();
+                    break;
+
+                case JsonValueKind.True:
+                    parent.Value = "true";
+                    break;
+
+                case JsonValueKind.False:
+                    parent.Value = "false";
+                    break;
+
+                case JsonValueKind.Null:
+                    parent.Value = string.Empty;
+                    break;
+            }
+        }
+
         public IImmutableList<ConvertorDetails> GetConvertorsForFile(string inputFileName)
         {
             return Convertors.Where(cd => cd.ExtensionToConvert == Path.GetExtension(inputFileName)).ToImmutableList();

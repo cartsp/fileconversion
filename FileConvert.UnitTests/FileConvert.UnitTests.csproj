@@ -12,6 +12,7 @@
     <None Remove="Documents\example.jpg" />
     <None Remove="Documents\sample.gif" />
     <None Remove="Documents\small-png-image.png" />
+    <None Remove="Documents\test.md" />
     <None Remove="Documents\Test Document.docx" />
     <None Remove="Documents\Untitled 1.csv" />
   </ItemGroup>
@@ -39,6 +40,18 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Documents\Untitled 1.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Documents\test.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Documents\test.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Documents\test.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Documents\test.xlsx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
