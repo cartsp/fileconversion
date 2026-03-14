@@ -2260,59 +2260,20 @@ namespace FileConvert.Infrastructure
         /// Converts a HEIC/HEIF image to JPG format using SkiaSharp.
         /// HEIC is the High Efficiency Image Format used by iPhones.
         /// </summary>
-        public Task<MemoryStream> ConvertHeicToJpg(MemoryStream heicStream)
-        {
-            heicStream.Position = 0;
-            using var bitmap = SKBitmap.Decode(heicStream.ToArray());
-            if (bitmap == null)
-                throw new InvalidOperationException("Failed to decode HEIC/HEIF image. The format may not be supported on this platform.");
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Jpeg, 90);
-
-            var outputStream = new MemoryStream();
-            data.SaveTo(outputStream);
-            outputStream.Position = 0;
-            return Task.FromResult(outputStream);
-        }
+        public Task<MemoryStream> ConvertHeicToJpg(MemoryStream heicStream) =>
+            ConvertModernImageFormat(heicStream, SKEncodedImageFormat.Jpeg, 90, "HEIC/HEIF");
 
         /// <summary>
         /// Converts a HEIC/HEIF image to PNG format using SkiaSharp.
         /// </summary>
-        public Task<MemoryStream> ConvertHeicToPng(MemoryStream heicStream)
-        {
-            heicStream.Position = 0;
-            using var bitmap = SKBitmap.Decode(heicStream.ToArray());
-            if (bitmap == null)
-                throw new InvalidOperationException("Failed to decode HEIC/HEIF image. The format may not be supported on this platform.");
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-
-            var outputStream = new MemoryStream();
-            data.SaveTo(outputStream);
-            outputStream.Position = 0;
-            return Task.FromResult(outputStream);
-        }
+        public Task<MemoryStream> ConvertHeicToPng(MemoryStream heicStream) =>
+            ConvertModernImageFormat(heicStream, SKEncodedImageFormat.Png, 0, "HEIC/HEIF");
 
         /// <summary>
         /// Converts a HEIC/HEIF image to WebP format using SkiaSharp.
         /// </summary>
-        public Task<MemoryStream> ConvertHeicToWebp(MemoryStream heicStream)
-        {
-            heicStream.Position = 0;
-            using var bitmap = SKBitmap.Decode(heicStream.ToArray());
-            if (bitmap == null)
-                throw new InvalidOperationException("Failed to decode HEIC/HEIF image. The format may not be supported on this platform.");
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Webp, 90);
-
-            var outputStream = new MemoryStream();
-            data.SaveTo(outputStream);
-            outputStream.Position = 0;
-            return Task.FromResult(outputStream);
-        }
+        public Task<MemoryStream> ConvertHeicToWebp(MemoryStream heicStream) =>
+            ConvertModernImageFormat(heicStream, SKEncodedImageFormat.Webp, 90, "HEIC/HEIF");
 
         #endregion
 
@@ -2322,59 +2283,20 @@ namespace FileConvert.Infrastructure
         /// Converts an AVIF image to JPG format using SkiaSharp.
         /// AVIF is a modern image format with superior compression.
         /// </summary>
-        public Task<MemoryStream> ConvertAvifToJpg(MemoryStream avifStream)
-        {
-            avifStream.Position = 0;
-            using var bitmap = SKBitmap.Decode(avifStream.ToArray());
-            if (bitmap == null)
-                throw new InvalidOperationException("Failed to decode AVIF image. The format may not be supported on this platform.");
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Jpeg, 90);
-
-            var outputStream = new MemoryStream();
-            data.SaveTo(outputStream);
-            outputStream.Position = 0;
-            return Task.FromResult(outputStream);
-        }
+        public Task<MemoryStream> ConvertAvifToJpg(MemoryStream avifStream) =>
+            ConvertModernImageFormat(avifStream, SKEncodedImageFormat.Jpeg, 90, "AVIF");
 
         /// <summary>
         /// Converts an AVIF image to PNG format using SkiaSharp.
         /// </summary>
-        public Task<MemoryStream> ConvertAvifToPng(MemoryStream avifStream)
-        {
-            avifStream.Position = 0;
-            using var bitmap = SKBitmap.Decode(avifStream.ToArray());
-            if (bitmap == null)
-                throw new InvalidOperationException("Failed to decode AVIF image. The format may not be supported on this platform.");
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-
-            var outputStream = new MemoryStream();
-            data.SaveTo(outputStream);
-            outputStream.Position = 0;
-            return Task.FromResult(outputStream);
-        }
+        public Task<MemoryStream> ConvertAvifToPng(MemoryStream avifStream) =>
+            ConvertModernImageFormat(avifStream, SKEncodedImageFormat.Png, 0, "AVIF");
 
         /// <summary>
         /// Converts an AVIF image to WebP format using SkiaSharp.
         /// </summary>
-        public Task<MemoryStream> ConvertAvifToWebp(MemoryStream avifStream)
-        {
-            avifStream.Position = 0;
-            using var bitmap = SKBitmap.Decode(avifStream.ToArray());
-            if (bitmap == null)
-                throw new InvalidOperationException("Failed to decode AVIF image. The format may not be supported on this platform.");
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Webp, 90);
-
-            var outputStream = new MemoryStream();
-            data.SaveTo(outputStream);
-            outputStream.Position = 0;
-            return Task.FromResult(outputStream);
-        }
+        public Task<MemoryStream> ConvertAvifToWebp(MemoryStream avifStream) =>
+            ConvertModernImageFormat(avifStream, SKEncodedImageFormat.Webp, 90, "AVIF");
 
         #endregion
 
@@ -2384,59 +2306,20 @@ namespace FileConvert.Infrastructure
         /// Converts a JPEG XL (JXL) image to JPG format using SkiaSharp.
         /// JPEG XL is a next-generation image format with excellent compression.
         /// </summary>
-        public Task<MemoryStream> ConvertJxlToJpg(MemoryStream jxlStream)
-        {
-            jxlStream.Position = 0;
-            using var bitmap = SKBitmap.Decode(jxlStream.ToArray());
-            if (bitmap == null)
-                throw new InvalidOperationException("Failed to decode JPEG XL image. The format may not be supported on this platform.");
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Jpeg, 90);
-
-            var outputStream = new MemoryStream();
-            data.SaveTo(outputStream);
-            outputStream.Position = 0;
-            return Task.FromResult(outputStream);
-        }
+        public Task<MemoryStream> ConvertJxlToJpg(MemoryStream jxlStream) =>
+            ConvertModernImageFormat(jxlStream, SKEncodedImageFormat.Jpeg, 90, "JPEG XL");
 
         /// <summary>
         /// Converts a JPEG XL (JXL) image to PNG format using SkiaSharp.
         /// </summary>
-        public Task<MemoryStream> ConvertJxlToPng(MemoryStream jxlStream)
-        {
-            jxlStream.Position = 0;
-            using var bitmap = SKBitmap.Decode(jxlStream.ToArray());
-            if (bitmap == null)
-                throw new InvalidOperationException("Failed to decode JPEG XL image. The format may not be supported on this platform.");
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-
-            var outputStream = new MemoryStream();
-            data.SaveTo(outputStream);
-            outputStream.Position = 0;
-            return Task.FromResult(outputStream);
-        }
+        public Task<MemoryStream> ConvertJxlToPng(MemoryStream jxlStream) =>
+            ConvertModernImageFormat(jxlStream, SKEncodedImageFormat.Png, 0, "JPEG XL");
 
         /// <summary>
         /// Converts a JPEG XL (JXL) image to WebP format using SkiaSharp.
         /// </summary>
-        public Task<MemoryStream> ConvertJxlToWebp(MemoryStream jxlStream)
-        {
-            jxlStream.Position = 0;
-            using var bitmap = SKBitmap.Decode(jxlStream.ToArray());
-            if (bitmap == null)
-                throw new InvalidOperationException("Failed to decode JPEG XL image. The format may not be supported on this platform.");
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Webp, 90);
-
-            var outputStream = new MemoryStream();
-            data.SaveTo(outputStream);
-            outputStream.Position = 0;
-            return Task.FromResult(outputStream);
-        }
+        public Task<MemoryStream> ConvertJxlToWebp(MemoryStream jxlStream) =>
+            ConvertModernImageFormat(jxlStream, SKEncodedImageFormat.Webp, 90, "JPEG XL");
 
         #endregion
 
@@ -2446,59 +2329,20 @@ namespace FileConvert.Infrastructure
         /// Converts a DNG (Adobe Digital Negative) raw image to JPG format using SkiaSharp.
         /// DNG is a raw image format used by various digital cameras.
         /// </summary>
-        public Task<MemoryStream> ConvertDngToJpg(MemoryStream dngStream)
-        {
-            dngStream.Position = 0;
-            using var bitmap = SKBitmap.Decode(dngStream.ToArray());
-            if (bitmap == null)
-                throw new InvalidOperationException("Failed to decode DNG image. The format may not be supported on this platform.");
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Jpeg, 90);
-
-            var outputStream = new MemoryStream();
-            data.SaveTo(outputStream);
-            outputStream.Position = 0;
-            return Task.FromResult(outputStream);
-        }
+        public Task<MemoryStream> ConvertDngToJpg(MemoryStream dngStream) =>
+            ConvertModernImageFormat(dngStream, SKEncodedImageFormat.Jpeg, 90, "DNG");
 
         /// <summary>
         /// Converts a DNG (Adobe Digital Negative) raw image to PNG format using SkiaSharp.
         /// </summary>
-        public Task<MemoryStream> ConvertDngToPng(MemoryStream dngStream)
-        {
-            dngStream.Position = 0;
-            using var bitmap = SKBitmap.Decode(dngStream.ToArray());
-            if (bitmap == null)
-                throw new InvalidOperationException("Failed to decode DNG image. The format may not be supported on this platform.");
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-
-            var outputStream = new MemoryStream();
-            data.SaveTo(outputStream);
-            outputStream.Position = 0;
-            return Task.FromResult(outputStream);
-        }
+        public Task<MemoryStream> ConvertDngToPng(MemoryStream dngStream) =>
+            ConvertModernImageFormat(dngStream, SKEncodedImageFormat.Png, 0, "DNG");
 
         /// <summary>
         /// Converts a DNG (Adobe Digital Negative) raw image to WebP format using SkiaSharp.
         /// </summary>
-        public Task<MemoryStream> ConvertDngToWebp(MemoryStream dngStream)
-        {
-            dngStream.Position = 0;
-            using var bitmap = SKBitmap.Decode(dngStream.ToArray());
-            if (bitmap == null)
-                throw new InvalidOperationException("Failed to decode DNG image. The format may not be supported on this platform.");
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Webp, 90);
-
-            var outputStream = new MemoryStream();
-            data.SaveTo(outputStream);
-            outputStream.Position = 0;
-            return Task.FromResult(outputStream);
-        }
+        public Task<MemoryStream> ConvertDngToWebp(MemoryStream dngStream) =>
+            ConvertModernImageFormat(dngStream, SKEncodedImageFormat.Webp, 90, "DNG");
 
         #endregion
 
@@ -2522,6 +2366,37 @@ namespace FileConvert.Infrastructure
             }
             outputStream.Position = 0;
             return outputStream;
+        }
+
+        /// <summary>
+        /// Converts a modern image format (HEIC, AVIF, JXL, DNG) to a standard format using SkiaSharp.
+        /// Centralizes conversion logic to avoid code duplication and ensure consistent error handling.
+        /// </summary>
+        /// <param name="inputStream">The input image stream</param>
+        /// <param name="targetFormat">The target encoded image format (Jpeg, Png, Webp)</param>
+        /// <param name="quality">Encoding quality (0-100). For PNG, this is ignored so use 0.</param>
+        /// <param name="formatName">Human-readable format name for error messages</param>
+        /// <returns>A memory stream containing the converted image</returns>
+        private Task<MemoryStream> ConvertModernImageFormat(MemoryStream inputStream, SKEncodedImageFormat targetFormat, int quality, string formatName)
+        {
+            // Validate input size to prevent memory exhaustion
+            if (inputStream.Length > MaxUncompressedSize)
+                throw new InvalidOperationException($"Input image exceeds maximum allowed size of {MaxUncompressedSize / (1024 * 1024)}MB");
+
+            inputStream.Position = 0;
+
+            // Use stream directly to avoid unnecessary memory allocation from ToArray()
+            using var bitmap = SKBitmap.Decode(inputStream);
+            if (bitmap == null)
+                throw new InvalidOperationException($"Failed to decode {formatName} image. The format may not be supported on this platform.");
+
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(targetFormat, quality);
+
+            var outputStream = new MemoryStream();
+            data.SaveTo(outputStream);
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
         }
 
         #endregion
