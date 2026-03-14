@@ -856,6 +856,7 @@ namespace FileConvert.Infrastructure
         public Task<MemoryStream> ConvertImageToIco(MemoryStream imageStream)
         {
             var outputStream = new MemoryStream();
+            imageStream.Position = 0;
 
             using (var image = ImageSharpImage.Load(imageStream))
             {
@@ -869,6 +870,7 @@ namespace FileConvert.Infrastructure
         public Task<MemoryStream> ConvertIcoToPng(MemoryStream icoStream)
         {
             var outputStream = new MemoryStream();
+            icoStream.Position = 0;
 
             using (var image = IcoFormat.DecodeFromIco(icoStream))
             {
@@ -881,6 +883,7 @@ namespace FileConvert.Infrastructure
 
         public Task<MemoryStream> ConvertImageToPdf(MemoryStream imageStream)
         {
+            imageStream.Position = 0;
             using var image = ImageSharpImage.Load(imageStream);
             using var pngStream = new MemoryStream();
 
