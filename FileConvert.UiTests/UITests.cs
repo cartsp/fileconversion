@@ -16,6 +16,17 @@ namespace FileConvert.UiTests
             _fixture = fixture;
         }
 
+        /// <summary>
+        /// Navigates to the page and waits for Blazor WASM to fully initialize.
+        /// Blazor shows a loading indicator while initializing - we wait for it to disappear.
+        /// </summary>
+        private async Task NavigateAndWaitForBlazorAsync()
+        {
+            await _fixture.Page.GotoAsync(BaseUrl);
+            // Wait for the loading indicator to disappear (Blazor replaces it with actual content)
+            await _fixture.Page.WaitForSelectorAsync(".splash-loading", new() { State = WaitForSelectorState.Hidden, Timeout = 90000 });
+        }
+
         [Fact]
         public async Task TestCanOpenSite()
         {
@@ -33,10 +44,10 @@ namespace FileConvert.UiTests
         public async Task TestAppStartsUp()
         {
             // Arrange
-            await _fixture.Page.GotoAsync(BaseUrl);
+            await NavigateAndWaitForBlazorAsync();
 
             // Act
-            var fileLabel = await _fixture.Page.WaitForSelectorAsync("#file-label", new() { Timeout = 60000 });
+            var fileLabel = await _fixture.Page.WaitForSelectorAsync("#file-label", new() { Timeout = 10000 });
 
             // Assert
             Assert.NotNull(fileLabel);
@@ -46,10 +57,10 @@ namespace FileConvert.UiTests
         public async Task TestFileControlExists()
         {
             // Arrange
-            await _fixture.Page.GotoAsync(BaseUrl);
+            await NavigateAndWaitForBlazorAsync();
 
             // Act
-            var fileControl = await _fixture.Page.WaitForSelectorAsync("#file-1", new() { Timeout = 60000 });
+            var fileControl = await _fixture.Page.WaitForSelectorAsync("#file-1", new() { Timeout = 10000 });
 
             // Assert
             Assert.NotNull(fileControl);
@@ -59,14 +70,14 @@ namespace FileConvert.UiTests
         public async Task TestAvailableFileConversionAppears()
         {
             // Arrange
-            await _fixture.Page.GotoAsync(BaseUrl);
-            var uploadElement = await _fixture.Page.WaitForSelectorAsync("#file-1", new() { Timeout = 60000 });
+            await NavigateAndWaitForBlazorAsync();
+            var uploadElement = await _fixture.Page.WaitForSelectorAsync("#file-1", new() { Timeout = 10000 });
 
             var filepath = Path.Combine(Directory.GetCurrentDirectory(), "Documents", "cities.csv");
             await uploadElement!.SetInputFilesAsync(filepath);
 
             // Act - wait for the conversion choice to be attached (it's an option in a select, may not be visible)
-            await _fixture.Page.WaitForSelectorAsync(".conversion-choices", new() { Timeout = 60000, State = WaitForSelectorState.Attached });
+            await _fixture.Page.WaitForSelectorAsync(".conversion-choices", new() { Timeout = 10000, State = WaitForSelectorState.Attached });
             var conversionSelections = await _fixture.Page.QuerySelectorAllAsync(".conversion-choices");
 
             // Assert
@@ -79,14 +90,14 @@ namespace FileConvert.UiTests
         public async Task TestNoAvailableFileConversionAppears()
         {
             // Arrange
-            await _fixture.Page.GotoAsync(BaseUrl);
-            var uploadElement = await _fixture.Page.WaitForSelectorAsync("#file-1", new() { Timeout = 60000 });
+            await NavigateAndWaitForBlazorAsync();
+            var uploadElement = await _fixture.Page.WaitForSelectorAsync("#file-1", new() { Timeout = 10000 });
 
             var filepath = Path.Combine(Directory.GetCurrentDirectory(), "Documents", "test.dgn");
             await uploadElement!.SetInputFilesAsync(filepath);
 
             // Act
-            var noConversionsFound = await _fixture.Page.WaitForSelectorAsync(".no-convertors-found", new() { Timeout = 60000 });
+            var noConversionsFound = await _fixture.Page.WaitForSelectorAsync(".no-convertors-found", new() { Timeout = 10000 });
             var textContent = await noConversionsFound!.TextContentAsync();
 
             // Assert - trim whitespace from the text content

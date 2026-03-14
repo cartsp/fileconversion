@@ -30,6 +30,7 @@ namespace FileConvert.Core.ValueObjects
         public static FileExtension txt { get { return new FileExtension(".txt"); } }
         public static FileExtension webp { get { return new FileExtension(".webp"); } }
         public static FileExtension tiff { get { return new FileExtension(".tiff"); } }
+        public static FileExtension ico { get { return new FileExtension(".ico"); } }
 
         public static implicit operator string(FileExtension value)
         {
