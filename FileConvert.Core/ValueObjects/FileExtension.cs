@@ -38,6 +38,7 @@ namespace FileConvert.Core.ValueObjects
         public static FileExtension tgz { get { return new FileExtension(".tgz"); } }
         public static FileExtension bz2 { get { return new FileExtension(".bz2"); } }
         public static FileExtension tbz2 { get { return new FileExtension(".tbz2"); } }
+        public static FileExtension qr { get { return new FileExtension(".qr"); } }
 
         public static implicit operator string(FileExtension value)
         {

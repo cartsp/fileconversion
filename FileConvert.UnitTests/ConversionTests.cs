@@ -9,6 +9,7 @@ using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Formats.Tiff;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -54,7 +55,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(76, result.Count);
+            Assert.Equal(80, result.Count);
         }
 
         [Fact]
@@ -1971,6 +1972,225 @@ namespace FileConvert.UnitTests
         }
 
         #endregion TIFF to WebP conversion tests
+
+        #region Text to QR Code conversion tests
+
+        [Fact]
+        public async Task TestConvertingTextToQrCodePng()
+        {
+            //Arrange
+            var textContent = "https://example.com";
+            var textStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(textContent));
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.txt)
+                                        .ThatConvertTo(FileExtension.png)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(textStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, PngFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingTextToQrCodePngReturnsStream()
+        {
+            //Arrange
+            var textContent = "Hello QR Code World!";
+            var textStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(textContent));
+
+            //Act
+            var result = await conversionService.ConvertTextToQrCodePng(textStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, PngFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingEmptyTextToQrCodeThrowsException()
+        {
+            //Arrange
+            var textStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("   "));
+
+            //Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await conversionService.ConvertTextToQrCodePng(textStream));
+        }
+
+        [Theory]
+        [InlineData(".png")]
+        public void TestAvailableConversionsForTextToQrCode(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.txt";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion Text to QR Code conversion tests
+
+        #region Text to Barcode conversion tests
+
+        [Fact]
+        public async Task TestConvertingTextToBarcodeJpg()
+        {
+            //Arrange
+            var textContent = "CODE128TEST";
+            var textStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(textContent));
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.txt)
+                                        .ThatConvertTo(FileExtension.jpg)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(textStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingTextToBarcodeJpegReturnsStream()
+        {
+            //Arrange
+            var textContent = "BARCODE123";
+            var textStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(textContent));
+
+            //Act
+            var result = await conversionService.ConvertTextToBarcodeJpg(textStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingEmptyTextToBarcodeThrowsException()
+        {
+            //Arrange
+            var textStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(""));
+
+            //Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await conversionService.ConvertTextToBarcodeJpg(textStream));
+        }
+
+        [Theory]
+        [InlineData(".jpg")]
+        [InlineData(".jpeg")]
+        public void TestAvailableConversionsForTextToBarcode(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.txt";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion Text to Barcode conversion tests
+
+        #region PDF Merge/Split tests
+
+        [Fact]
+        public async Task TestMergingTwoPdfsReturnsSinglePdf()
+        {
+            // Arrange
+            var pdf1Stream = ConvertFileToMemoryStream("Documents/test.pdf");
+            var pdf2Stream = ConvertFileToMemoryStream("Documents/test.pdf");
+            var pdfStreams = new List<MemoryStream> { pdf1Stream, pdf2Stream };
+
+            // Act
+            var result = await conversionService.MergePdfsAsync(pdfStreams);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            result.Position = 0;
+            var reader = new StreamReader(result, leaveOpen: true);
+            var header = reader.ReadLine();
+            Assert.StartsWith("%PDF", header);
+        }
+
+        [Fact]
+        public async Task TestMergingEmptyPdfListThrowsException()
+        {
+            // Arrange
+            var pdfStreams = new List<MemoryStream>();
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => conversionService.MergePdfsAsync(pdfStreams));
+        }
+
+        [Fact]
+        public async Task TestSplittingPdfReturnsPages()
+        {
+            // Arrange
+            var pdfStream = ConvertFileToMemoryStream("Documents/test.pdf");
+
+            // Act
+            var result = await conversionService.SplitPdfAsync(pdfStream);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.NotEmpty(result);
+            foreach (var page in result)
+            {
+                Assert.True(page.Length > 0);
+                page.Position = 0;
+                var reader = new StreamReader(page, leaveOpen: true);
+                var header = reader.ReadLine();
+                Assert.StartsWith("%PDF", header);
+            }
+        }
+
+        [Fact]
+        public async Task TestExtractingPdfPageReturnsSinglePage()
+        {
+            // Arrange
+            var pdfStream = ConvertFileToMemoryStream("Documents/test.pdf");
+
+            // Act
+            var result = await conversionService.ExtractPdfPageAsync(pdfStream, 1);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            result.Position = 0;
+            var reader = new StreamReader(result, leaveOpen: true);
+            var header = reader.ReadLine();
+            Assert.StartsWith("%PDF", header);
+        }
+
+        [Fact]
+        public async Task TestExtractingInvalidPageNumberThrowsException()
+        {
+            // Arrange
+            var pdfStream = ConvertFileToMemoryStream("Documents/test.pdf");
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => conversionService.ExtractPdfPageAsync(pdfStream, 100));
+        }
+
+        #endregion PDF Merge/Split tests
 
         #region Helper Methods
         private static MemoryStream ConvertFileToMemoryStream(String FileName)
