@@ -23,6 +23,13 @@ using System.Text.RegularExpressions;
 using ImageSharpImage = SixLabors.ImageSharp.Image;
 using SkiaSharp;
 using Svg.Skia;
+using ICSharpCode.SharpZipLib.Core;
+using ICSharpCode.SharpZipLib.GZip;
+using ICSharpCode.SharpZipLib.Tar;
+using ICSharpCode.SharpZipLib.Zip;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace FileConvert.Infrastructure
 {
@@ -39,6 +46,7 @@ namespace FileConvert.Infrastructure
             .Build();
         private static readonly Regex MultipleBlankLinesRegex = new(@"\r\n\s*\r\n", RegexOptions.Compiled);
         private static readonly Regex HorizontalWhitespaceRegex = new(@"[ \t]+", RegexOptions.Compiled);
+        private const int StreamBufferSize = 4096;
         private static readonly HashSet<string> BlockElements = new(StringComparer.OrdinalIgnoreCase)
         {
             "p", "div", "br", "h1", "h2", "h3", "h4", "h5", "h6", "li", "tr"
@@ -49,6 +57,8 @@ namespace FileConvert.Infrastructure
         {
             // EPPlus 5+ requires license context to be set
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            // QuestPDF requires license - Community Edition is free for non-commercial use
+            QuestPDF.Settings.License = LicenseType.Community;
         }
 
         public FileConversionService()
@@ -152,6 +162,22 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.svg, FileExtension.jpg, ConvertSvgToJpg));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.svg, FileExtension.jpeg, ConvertSvgToJpg));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.svg, FileExtension.webp, ConvertSvgToWebP));
+
+            // Archive format conversions - high value binary conversions
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.gz, FileExtension.tar, ConvertGzToTar));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tgz, FileExtension.tar, ConvertGzToTar));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tar, FileExtension.gz, ConvertTarToGz));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tar, FileExtension.tgz, ConvertTarToGz));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.bz2, FileExtension.tar, ConvertBz2ToTar));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tbz2, FileExtension.tar, ConvertBz2ToTar));
+
+            // Image to PDF conversions - very high value for users
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.png, FileExtension.pdf, ConvertImageToPdf));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jpg, FileExtension.pdf, ConvertImageToPdf));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.jpeg, FileExtension.pdf, ConvertImageToPdf));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.gif, FileExtension.pdf, ConvertImageToPdf));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.bmp, FileExtension.pdf, ConvertImageToPdf));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.webp, FileExtension.pdf, ConvertImageToPdf));
 
             Convertors = ConvertorListBuilder.ToImmutable();
         }
@@ -1084,6 +1110,99 @@ namespace FileConvert.Infrastructure
         {
             return Convertors;
         }
+
+        #region Archive Conversion Methods
+
+        /// <summary>
+        /// Decompresses a GZip (.gz or .tgz) file to extract the underlying TAR archive.
+        /// </summary>
+        public Task<MemoryStream> ConvertGzToTar(MemoryStream gzStream)
+        {
+            var outputStream = new MemoryStream();
+            gzStream.Position = 0;
+
+            using (var gzipStream = new GZipInputStream(gzStream))
+            {
+                var buffer = new byte[StreamBufferSize];
+                StreamUtils.Copy(gzipStream, outputStream, buffer);
+            }
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Compresses a TAR archive using GZip compression (.tar.gz or .tgz).
+        /// </summary>
+        public Task<MemoryStream> ConvertTarToGz(MemoryStream tarStream)
+        {
+            var outputStream = new MemoryStream();
+            tarStream.Position = 0;
+
+            using (var gzipStream = new GZipOutputStream(outputStream))
+            {
+                gzipStream.IsStreamOwner = false;
+                var buffer = new byte[StreamBufferSize];
+                StreamUtils.Copy(tarStream, gzipStream, buffer);
+            }
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Decompresses a BZip2 (.bz2 or .tbz2) file to extract the underlying TAR archive.
+        /// </summary>
+        public Task<MemoryStream> ConvertBz2ToTar(MemoryStream bz2Stream)
+        {
+            var outputStream = new MemoryStream();
+            bz2Stream.Position = 0;
+
+            using (var bzip2Stream = new ICSharpCode.SharpZipLib.BZip2.BZip2InputStream(bz2Stream))
+            {
+                var buffer = new byte[StreamBufferSize];
+                StreamUtils.Copy(bzip2Stream, outputStream, buffer);
+            }
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        #endregion
+
+        #region PDF Conversion Methods
+
+        /// <summary>
+        /// Converts an image to PDF format using QuestPDF.
+        /// Supports PNG, JPG, GIF, BMP, and WebP formats.
+        /// </summary>
+        public Task<MemoryStream> ConvertImageToPdf(MemoryStream imageStream)
+        {
+            var outputStream = new MemoryStream();
+            imageStream.Position = 0;
+
+            var imageData = imageStream.ToArray();
+
+            Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(0, Unit.Point);
+
+                    page.Content()
+                        .AlignCenter()
+                        .AlignMiddle()
+                        .Image(imageData)
+                        .FitArea();
+                });
+            }).GeneratePdf(outputStream);
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        #endregion
 
         #region Helper Methods
 

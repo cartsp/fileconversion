@@ -30,6 +30,8 @@ Since the app runs in the browser via WebAssembly, CI only runs on `ubuntu-lates
 - **HtmlAgilityPack** (1.12.4) - HTML parsing, WASM-compatible
 - **SkiaSharp** (3.116.1) - Cross-platform 2D graphics, WASM-compatible
 - **Svg.Skia** (2.0.0) - SVG rendering using SkiaSharp
+- **SharpZipLib** (1.4.2) - Archive compression/decompression (ZIP, TAR, GZip, BZip2)
+- **QuestPDF** (2024.12.0) - PDF generation, WASM-compatible via SkiaSharp
 
 ### Supported Conversions
 
@@ -40,10 +42,14 @@ Since the app runs in the browser via WebAssembly, CI only runs on `ubuntu-lates
 | PNG, GIF, BMP, JPG, JPEG, JFIF | GIF |
 | PNG, GIF, BMP, JPG, JPEG, JFIF | WebP |
 | PNG, GIF, BMP, JPG, JPEG, JFIF, WebP, TIFF/TIF | ICO |
+| PNG, GIF, BMP, JPG, JPEG, WebP | PDF |
 | WebP | JPG/JPEG, PNG, GIF |
 | TIFF/TIF | JPG/JPEG, PNG |
 | ICO | PNG |
 | SVG | PNG, JPG/JPEG, WebP |
+| GZ/TGZ | TAR |
+| TAR | GZ/TGZ |
+| BZ2/TBZ2 | TAR |
 | CSV | XLSX |
 | CSV | JSON |
 | CSV | YAML/YML |
