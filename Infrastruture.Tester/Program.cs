@@ -19,7 +19,7 @@ namespace Infrastruture.Tester
             using (FileStream file = new FileStream(wordDocToConvert.FullName, FileMode.Open, FileAccess.Read))
             {
                 byte[] bytes = new byte[file.Length];
-                file.Read(bytes, 0, (int)file.Length);
+                file.ReadExactly(bytes, 0, (int)file.Length);
                 pngStream.Write(bytes, 0, (int)file.Length);
                 pngStream.Position = 0;
                 var result = await conversionService.ConvertImageTojpg(pngStream);

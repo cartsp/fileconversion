@@ -266,7 +266,7 @@ namespace FileConvert.UnitTests
             using (FileStream file = new FileStream(fileToConvert.FullName, FileMode.Open, FileAccess.Read))
             {
                 byte[] bytes = new byte[file.Length];
-                file.Read(bytes, 0, (int)file.Length);
+                file.ReadExactly(bytes, 0, (int)file.Length);
                 convertedStream.Write(bytes, 0, (int)file.Length);
             }
 
