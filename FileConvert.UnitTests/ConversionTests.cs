@@ -54,7 +54,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(72, result.Count);
+            Assert.Equal(76, result.Count);
         }
 
         [Fact]
@@ -1142,6 +1142,7 @@ namespace FileConvert.UnitTests
         [InlineData(".jpg")]
         [InlineData(".png")]
         [InlineData(".jpeg")]
+        [InlineData(".webp")]
         public void TestAvailableConversionsForTIF(string conversionAvailable)
         {
             //Arrange
@@ -1152,7 +1153,7 @@ namespace FileConvert.UnitTests
 
             //Assert
             Assert.True(result.Count != 0);
-            Assert.True(result.Count == 3);
+            Assert.True(result.Count == 4);
             Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
         }
 
@@ -1818,6 +1819,158 @@ namespace FileConvert.UnitTests
         }
 
         #endregion Image to PDF conversion tests
+
+        #region ZIP ↔ TAR conversion tests
+
+        [Fact]
+        public async Task TestConvertingZipToTar()
+        {
+            //Arrange
+            MemoryStream zipStream = ConvertFileToMemoryStream("Documents/test.zip");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.zip)
+                                        .ThatConvertTo(FileExtension.tar)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(zipStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // Verify TAR header - TAR files start with filename
+            result.Position = 0;
+            using var reader = new BinaryReader(result, System.Text.Encoding.Default, leaveOpen: true);
+            var headerBytes = reader.ReadBytes(8);
+            // TAR files have the filename at the start, null-padded to 100 bytes
+            Assert.True(headerBytes.Length > 0);
+        }
+
+        [Fact]
+        public async Task TestConvertingTarToZip()
+        {
+            //Arrange
+            MemoryStream tarStream = ConvertFileToMemoryStream("Documents/test.tar");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.tar)
+                                        .ThatConvertTo(FileExtension.zip)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(tarStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // Verify ZIP header - ZIP files start with PK (0x50 0x4B)
+            result.Position = 0;
+            using var reader = new BinaryReader(result, System.Text.Encoding.Default, leaveOpen: true);
+            var magic1 = reader.ReadByte();
+            var magic2 = reader.ReadByte();
+            Assert.Equal(0x50, magic1); // 'P'
+            Assert.Equal(0x4B, magic2); // 'K'
+        }
+
+        [Theory]
+        [InlineData(".tar")]
+        public void TestAvailableConversionsForZIP(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.zip";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        [Fact]
+        public async Task TestConvertingZipToTarReturnsStream()
+        {
+            //Arrange
+            MemoryStream zipStream = ConvertFileToMemoryStream("Documents/test.zip");
+
+            //Act
+            var result = await conversionService.ConvertZipToTar(zipStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Fact]
+        public async Task TestConvertingTarToZipReturnsStream()
+        {
+            //Arrange
+            MemoryStream tarStream = ConvertFileToMemoryStream("Documents/test.tar");
+
+            //Act
+            var result = await conversionService.ConvertTarToZip(tarStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        #endregion ZIP ↔ TAR conversion tests
+
+        #region TIFF to WebP conversion tests
+
+        [Theory]
+        [InlineData(".tif")]
+        [InlineData(".tiff")]
+        public async Task TestConvertingTiffToWebP(string extension)
+        {
+            //Arrange
+            MemoryStream tiffStream = ConvertFileToMemoryStream("Documents/test.tif");
+
+            FileExtension sourceExtension = extension;
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(sourceExtension)
+                                        .ThatConvertTo(FileExtension.webp)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(tiffStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, WebpFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingTiffToWebPReturnsStream()
+        {
+            //Arrange
+            MemoryStream tiffStream = ConvertFileToMemoryStream("Documents/test.tif");
+
+            //Act
+            var result = await conversionService.ConvertTiffToWebP(tiffStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+            Assert.True(IsImageFormatCorrect(result, WebpFormat.Instance));
+        }
+
+        [Theory]
+        [InlineData(".tif")]
+        [InlineData(".tiff")]
+        public void TestAvailableConversionsForTiffToWebP(string extension)
+        {
+            //Arrange
+            var DocumentName = $"testdoc{extension}";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.Contains(result, a => a.ConvertedExtension.Value == ".webp");
+        }
+
+        #endregion TIFF to WebP conversion tests
 
         #region Helper Methods
         private static MemoryStream ConvertFileToMemoryStream(String FileName)
