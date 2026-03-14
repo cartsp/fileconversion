@@ -54,7 +54,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(56, result.Count);
+            Assert.Equal(60, result.Count);
         }
 
         [Fact]
@@ -1470,6 +1470,128 @@ namespace FileConvert.UnitTests
         }
 
         #endregion ICO conversion tests
+
+        #region SVG conversion tests
+
+        [Fact]
+        public async Task TestConvertingSVGToPNG()
+        {
+            //Arrange
+            MemoryStream svgStream = ConvertFileToMemoryStream("Documents/test.svg");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.svg)
+                                        .ThatConvertTo(FileExtension.png)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(svgStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, PngFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingSVGToJPG()
+        {
+            //Arrange
+            MemoryStream svgStream = ConvertFileToMemoryStream("Documents/test.svg");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.svg)
+                                        .ThatConvertTo(FileExtension.jpg)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(svgStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingSVGToWebP()
+        {
+            //Arrange
+            MemoryStream svgStream = ConvertFileToMemoryStream("Documents/test.svg");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.svg)
+                                        .ThatConvertTo(FileExtension.webp)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(svgStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, WebpFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingSVGToPNGReturnsStream()
+        {
+            //Arrange
+            MemoryStream svgStream = ConvertFileToMemoryStream("Documents/test.svg");
+
+            //Act
+            var result = await conversionService.ConvertSvgToPng(svgStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Fact]
+        public async Task TestConvertingSVGToJPGReturnsStream()
+        {
+            //Arrange
+            MemoryStream svgStream = ConvertFileToMemoryStream("Documents/test.svg");
+
+            //Act
+            var result = await conversionService.ConvertSvgToJpg(svgStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Fact]
+        public async Task TestConvertingSVGToWebPReturnsStream()
+        {
+            //Arrange
+            MemoryStream svgStream = ConvertFileToMemoryStream("Documents/test.svg");
+
+            //Act
+            var result = await conversionService.ConvertSvgToWebP(svgStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".png")]
+        [InlineData(".jpg")]
+        [InlineData(".jpeg")]
+        [InlineData(".webp")]
+        public void TestAvailableConversionsForSVG(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.svg";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 4);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion SVG conversion tests
 
         #region Helper Methods
         private static MemoryStream ConvertFileToMemoryStream(String FileName)
