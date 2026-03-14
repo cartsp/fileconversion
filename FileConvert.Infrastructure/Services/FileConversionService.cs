@@ -137,29 +137,16 @@ namespace FileConvert.Infrastructure
         }
 
 
-        public async Task<MemoryStream> ConverTifToPNG(MemoryStream TifFile)
+        public Task<MemoryStream> ConverTifToPNG(MemoryStream TifFile)
         {
-            _ = TifFile; // Parameter reserved for future implementation
-            //using (var magicImage = new MagickImage(JPGfile))
-            //{
-            //    var memoryStream = new MemoryStream();
-            //    magicImage.Format = MagickFormat.Jpeg;
-            //    magicImage.Write(memoryStream);
-
-            //    return memoryStream;
-            //}
-            var msPNG = new MemoryStream();
-
-            return await Task.FromResult(msPNG).ConfigureAwait(true);
+            ArgumentNullException.ThrowIfNull(TifFile);
+            throw new NotImplementedException("TIF to PNG conversion is not yet implemented.");
         }
 
-        public async Task<MemoryStream> ConvertMP3ToWav(MemoryStream MP3Stream)
+        public Task<MemoryStream> ConvertMP3ToWav(MemoryStream MP3Stream)
         {
-            _ = MP3Stream; // Parameter reserved for future implementation
-            MemoryStream ConvertedWaveStream = new MemoryStream();
-
-
-            return await Task.FromResult(ConvertedWaveStream).ConfigureAwait(true);
+            ArgumentNullException.ThrowIfNull(MP3Stream);
+            throw new NotImplementedException("MP3 to WAV conversion is not yet implemented.");
         }
 
         public async Task<MemoryStream> ConvertCSVToExcel(MemoryStream CSVStream)
