@@ -32,6 +32,7 @@ Since the app runs in the browser via WebAssembly, CI only runs on `ubuntu-lates
 - **Svg.Skia** (2.0.0) - SVG rendering using SkiaSharp
 - **SharpZipLib** (1.4.2) - Archive compression/decompression (ZIP, TAR, GZip, BZip2)
 - **QuestPDF** (2024.12.0) - PDF generation, WASM-compatible via SkiaSharp
+- **DocumentFormat.OpenXml** (3.2.0) - DOCX parsing, WASM-compatible
 
 ### Supported Conversions
 
@@ -54,15 +55,15 @@ Since the app runs in the browser via WebAssembly, CI only runs on `ubuntu-lates
 | CSV | XLSX |
 | CSV | JSON |
 | CSV | YAML/YML |
-| XLSX | CSV |
-| XLSX | JSON |
+| XLSX | CSV, JSON, PDF |
+| DOCX | PDF, HTML |
 | JSON | XML |
 | JSON | CSV |
 | JSON | YAML/YML |
 | XML | JSON |
 | XML | CSV |
 | YAML/YML | JSON |
-| Markdown (MD) | HTML |
+| Markdown (MD) | HTML, PDF |
 | HTML | TXT |
 | TSV | CSV |
 | TSV | JSON |

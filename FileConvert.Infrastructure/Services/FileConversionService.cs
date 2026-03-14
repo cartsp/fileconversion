@@ -45,6 +45,10 @@ using SharpCompress.Common;
 using CoreJ2K;
 using CoreJ2K.ImageSharp;
 using VersOne.Epub;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
+using DocumentFormat.OpenXml;
+using WordDocument = DocumentFormat.OpenXml.Wordprocessing.Document;
 
 namespace FileConvert.Infrastructure
 {
@@ -143,8 +147,14 @@ namespace FileConvert.Infrastructure
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.xls, ConvertCSVToExcel));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.csv, FileExtension.xlsx, ConvertCSVToExcel));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.xlsx, FileExtension.csv, ConvertXLSXToCSV));
-            //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.docx, FileExtension.html, ConvertDocToHTML));
-            //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.docx, FileExtension.pdf, ConvertDocToPDF));
+
+            // DOCX conversions - high value document conversions
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.docx, FileExtension.pdf, ConvertDocxToPdf));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.docx, FileExtension.html, ConvertDocxToHtml));
+
+            // XLSX to PDF conversion - high value spreadsheet conversion
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.xlsx, FileExtension.pdf, ConvertXlsxToPdf));
+
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.mp3, FileExtension.wav, ConvertMP3ToWav));
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tif, FileExtension.png, ConverTifToPNG));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.png, FileExtension.jpg, ConvertImageTojpg));
@@ -1773,7 +1783,7 @@ namespace FileConvert.Infrastructure
 
             var imageData = imageStream.ToArray();
 
-            Document.Create(container =>
+            QuestPDF.Fluent.Document.Create(container =>
             {
                 container.Page(page =>
                 {
@@ -2028,7 +2038,7 @@ namespace FileConvert.Infrastructure
         /// </summary>
         /// <param name="markdownStream">The markdown stream to convert</param>
         /// <returns>A PDF stream containing the rendered markdown content</returns>
-        public async Task<MemoryStream> ConvertMarkdownToPdf(MemoryStream markdownStream)
+        public Task<MemoryStream> ConvertMarkdownToPdf(MemoryStream markdownStream)
         {
             markdownStream.Position = 0;
             var markdownContent = Encoding.UTF8.GetString(markdownStream.ToArray());
@@ -2066,7 +2076,7 @@ namespace FileConvert.Infrastructure
             // Create PDF using QuestPDF
             var outputStream = new MemoryStream();
 
-            Document.Create(container =>
+            QuestPDF.Fluent.Document.Create(container =>
             {
                 container.Page(page =>
                 {
@@ -2079,7 +2089,7 @@ namespace FileConvert.Infrastructure
             }).GeneratePdf(outputStream);
 
             outputStream.Position = 0;
-            return await Task.FromResult(outputStream);
+            return Task.FromResult(outputStream);
         }
 
         #endregion
@@ -2152,7 +2162,7 @@ namespace FileConvert.Infrastructure
                 // Create PDF using QuestPDF
                 var outputStream = new MemoryStream();
 
-                Document.Create(container =>
+                QuestPDF.Fluent.Document.Create(container =>
                 {
                     container.Page(page =>
                     {
@@ -2250,6 +2260,411 @@ namespace FileConvert.Infrastructure
                     File.Delete(tempFilePath);
                 }
             }
+        }
+
+        #endregion
+
+        // CSS styles for DOCX to HTML conversion
+        private const string DocxToHtmlCss = @"
+body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+h1 { font-size: 24px; margin-top: 24px; }
+h2 { font-size: 20px; margin-top: 20px; }
+h3 { font-size: 16px; margin-top: 16px; }
+p { margin: 12px 0; }
+table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+th { background-color: #f2f2f2; }
+ul, ol { margin: 12px 0; padding-left: 24px; }
+li { margin: 4px 0; }";
+
+        // Maximum column width in characters for XLSX to PDF conversion
+        // Prevents excessively wide columns in PDF output
+        private const int MaxColumnWidthChars = 50;
+
+        #region DOCX Conversion Methods
+
+        /// <summary>
+        /// Converts a DOCX document to PDF format.
+        /// Parses DOCX content using Open-XML-SDK and renders to PDF using QuestPDF.
+        /// </summary>
+        /// <param name="docxStream">The DOCX stream to convert</param>
+        /// <returns>A PDF stream containing the rendered document content</returns>
+        public async Task<MemoryStream> ConvertDocxToPdf(MemoryStream docxStream)
+        {
+            docxStream.Position = 0;
+
+            var textContent = await ExtractTextFromDocxAsync(docxStream);
+
+            if (string.IsNullOrWhiteSpace(textContent))
+            {
+                throw new ArgumentException("DOCX content is empty or could not be extracted");
+            }
+
+            // Create PDF using QuestPDF
+            var outputStream = new MemoryStream();
+
+            QuestPDF.Fluent.Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(1, Unit.Centimetre);
+                    page.DefaultTextStyle(x => x.FontSize(11));
+
+                    page.Content().Text(textContent);
+                });
+            }).GeneratePdf(outputStream);
+
+            outputStream.Position = 0;
+            return outputStream;
+        }
+
+        /// <summary>
+        /// Converts a DOCX document to HTML format.
+        /// Parses DOCX content using Open-XML-SDK and converts to semantic HTML.
+        /// </summary>
+        /// <param name="docxStream">The DOCX stream to convert</param>
+        /// <returns>An HTML stream containing the document content</returns>
+        public async Task<MemoryStream> ConvertDocxToHtml(MemoryStream docxStream)
+        {
+            docxStream.Position = 0;
+
+            var htmlBuilder = new StringBuilder();
+            htmlBuilder.AppendLine("<!DOCTYPE html>");
+            htmlBuilder.AppendLine("<html>");
+            htmlBuilder.AppendLine("<head>");
+            htmlBuilder.AppendLine("<meta charset=\"UTF-8\">");
+            htmlBuilder.AppendLine("<style>");
+            htmlBuilder.AppendLine(DocxToHtmlCss);
+            htmlBuilder.AppendLine("</style>");
+            htmlBuilder.AppendLine("</head>");
+            htmlBuilder.AppendLine("<body>");
+
+            // Create a copy of the stream with auto-grow enabled for WordprocessingDocument
+            // This approach works in WebAssembly without file system access
+            var docxCopy = new MemoryStream(docxStream.ToArray(), true);
+
+            using var wordDoc = WordprocessingDocument.Open(docxCopy, false);
+            var mainPart = wordDoc.MainDocumentPart;
+
+            if (mainPart?.Document?.Body != null)
+            {
+                // Track list state for proper HTML list wrapping
+                bool inList = false;
+                var elements = mainPart.Document.Body.Elements().ToList();
+
+                for (int i = 0; i < elements.Count; i++)
+                {
+                    var element = elements[i];
+                    var isListItem = element is NumberingInstance ||
+                                     element.InnerText?.StartsWith("\u2022") == true ||
+                                     element.InnerText?.StartsWith("- ") == true;
+
+                    if (isListItem && !inList)
+                    {
+                        htmlBuilder.AppendLine("<ul>");
+                        inList = true;
+                    }
+                    else if (!isListItem && inList)
+                    {
+                        htmlBuilder.AppendLine("</ul>");
+                        inList = false;
+                    }
+
+                    ProcessDocxElementToHtml(element, htmlBuilder);
+                }
+
+                // Close any open list at the end
+                if (inList)
+                {
+                    htmlBuilder.AppendLine("</ul>");
+                }
+            }
+
+            htmlBuilder.AppendLine("</body>");
+            htmlBuilder.AppendLine("</html>");
+
+            return await WriteStringToStreamAsync(htmlBuilder.ToString());
+        }
+
+        /// <summary>
+        /// Extracts plain text from a DOCX document.
+        /// </summary>
+        private async Task<string> ExtractTextFromDocxAsync(MemoryStream docxStream)
+        {
+            var textBuilder = new StringBuilder();
+
+            // Create a copy of the stream with auto-grow enabled for WordprocessingDocument
+            // This approach works in WebAssembly without file system access
+            var docxCopy = new MemoryStream(docxStream.ToArray(), true);
+
+            using var wordDoc = WordprocessingDocument.Open(docxCopy, false);
+            var mainPart = wordDoc.MainDocumentPart;
+
+            if (mainPart?.Document?.Body != null)
+            {
+                foreach (var element in mainPart.Document.Body.Elements())
+                {
+                    var text = ExtractTextFromDocxElement(element);
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        textBuilder.AppendLine(text);
+                    }
+                }
+            }
+
+            return textBuilder.ToString().Trim();
+        }
+
+        /// <summary>
+        /// Extracts text from a DOCX element (paragraph, table, etc.).
+        /// </summary>
+        private string ExtractTextFromDocxElement(OpenXmlElement element)
+        {
+            if (element is Paragraph para)
+            {
+                return para.InnerText;
+            }
+            else if (element is Table table)
+            {
+                var tableText = new StringBuilder();
+                foreach (var row in table.Elements<TableRow>())
+                {
+                    var rowTexts = new List<string>();
+                    foreach (var cell in row.Elements<TableCell>())
+                    {
+                        rowTexts.Add(cell.InnerText.Trim());
+                    }
+                    tableText.AppendLine(string.Join(" | ", rowTexts));
+                }
+                return tableText.ToString();
+            }
+            else
+            {
+                return element.InnerText;
+            }
+        }
+
+        /// <summary>
+        /// Processes a DOCX element and appends HTML representation to the builder.
+        /// </summary>
+        private void ProcessDocxElementToHtml(OpenXmlElement element, StringBuilder htmlBuilder)
+        {
+            if (element is Paragraph para)
+            {
+                var text = para.InnerText;
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    return;
+                }
+
+                // Check for heading styles
+                var styleId = GetParagraphStyleId(para);
+                if (styleId != null)
+                {
+                    var headingTag = GetHeadingTag(styleId);
+                    if (headingTag != null)
+                    {
+                        htmlBuilder.AppendLine($"<{headingTag}>{EscapeHtml(text)}</{headingTag}>");
+                        return;
+                    }
+                }
+
+                // Check for bold/italic runs
+                var formattedText = FormatRuns(para);
+                htmlBuilder.AppendLine($"<p>{formattedText}</p>");
+            }
+            else if (element is Table table)
+            {
+                htmlBuilder.AppendLine("<table>");
+                var isFirstRow = true;
+                foreach (var row in table.Elements<TableRow>())
+                {
+                    htmlBuilder.AppendLine("<tr>");
+                    foreach (var cell in row.Elements<TableCell>())
+                    {
+                        var tag = isFirstRow ? "th" : "td";
+                        htmlBuilder.AppendLine($"<{tag}>{EscapeHtml(cell.InnerText)}</{tag}>");
+                    }
+                    htmlBuilder.AppendLine("</tr>");
+                    isFirstRow = false;
+                }
+                htmlBuilder.AppendLine("</table>");
+            }
+            else if (element is NumberingInstance || element.InnerText?.StartsWith("\u2022") == true ||
+                     element.InnerText?.StartsWith("- ") == true)
+            {
+                // Handle list items
+                htmlBuilder.AppendLine($"<li>{EscapeHtml(element.InnerText)}</li>");
+            }
+        }
+
+        /// <summary>
+        /// Gets the style ID for a paragraph.
+        /// </summary>
+        private static string GetParagraphStyleId(Paragraph para)
+        {
+            var props = para.ParagraphProperties;
+            if (props != null)
+            {
+                var style = props.ParagraphStyleId;
+                if (style != null)
+                {
+                    return style.Val?.Value;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Gets the HTML heading tag for a style ID, or null if not a heading.
+        /// </summary>
+        private static string GetHeadingTag(string styleId)
+        {
+            if (styleId.Contains("Heading1", StringComparison.OrdinalIgnoreCase)) return "h1";
+            if (styleId.Contains("Heading2", StringComparison.OrdinalIgnoreCase)) return "h2";
+            if (styleId.Contains("Heading3", StringComparison.OrdinalIgnoreCase)) return "h3";
+            return null;
+        }
+
+        /// <summary>
+        /// Formats runs within a paragraph, preserving bold and italic formatting.
+        /// </summary>
+        private static string FormatRuns(Paragraph para)
+        {
+            var result = new StringBuilder();
+            foreach (var run in para.Elements<Run>())
+            {
+                var text = run.InnerText;
+                if (string.IsNullOrEmpty(text))
+                    continue;
+
+                var isBold = run.RunProperties?.Bold != null;
+                var isItalic = run.RunProperties?.Italic != null;
+                var isUnderline = run.RunProperties?.Underline != null;
+
+                var formattedText = EscapeHtml(text);
+
+                if (isUnderline)
+                    formattedText = $"<u>{formattedText}</u>";
+                if (isItalic)
+                    formattedText = $"<em>{formattedText}</em>";
+                if (isBold)
+                    formattedText = $"<strong>{formattedText}</strong>";
+
+                result.Append(formattedText);
+            }
+            return result.ToString();
+        }
+
+        /// <summary>
+        /// Escapes special HTML characters.
+        /// </summary>
+        private static string EscapeHtml(string text)
+        {
+            return text
+                .Replace("&", "&amp;")
+                .Replace("<", "&lt;")
+                .Replace(">", "&gt;")
+                .Replace("\"", "&quot;")
+                .Replace("'", "&#39;");
+        }
+
+        #endregion
+
+        #region XLSX to PDF Conversion Methods
+
+        /// <summary>
+        /// Maximum number of rows to process in XLSX to PDF conversion.
+        /// Prevents memory issues with large spreadsheets.
+        /// </summary>
+        private const int MaxRowsForXlsxToPdf = 500;
+
+        /// <summary>
+        /// Converts an XLSX spreadsheet to PDF format.
+        /// Uses EPPlus to read the spreadsheet and QuestPDF to render as a table.
+        /// </summary>
+        /// <param name="xlsxStream">The XLSX stream to convert</param>
+        /// <returns>A PDF stream containing the rendered spreadsheet content</returns>
+        public async Task<MemoryStream> ConvertXlsxToPdf(MemoryStream xlsxStream)
+        {
+            xlsxStream.Position = 0;
+
+            using var package = new ExcelPackage(xlsxStream);
+            var worksheet = package.Workbook.Worksheets[0];
+
+            var originalRowCount = worksheet.Dimension?.Rows ?? 0;
+            var colCount = worksheet.Dimension?.Columns ?? 0;
+
+            if (originalRowCount == 0 || colCount == 0)
+            {
+                throw new ArgumentException("XLSX spreadsheet is empty");
+            }
+
+            // Limit the number of rows to prevent memory issues
+            var rowCount = Math.Min(originalRowCount, MaxRowsForXlsxToPdf);
+            var wasTruncated = originalRowCount > MaxRowsForXlsxToPdf;
+
+            // Extract data from worksheet
+            var tableData = new List<List<string>>();
+            var columnWidths = new int[colCount];
+
+            for (int row = 1; row <= rowCount; row++)
+            {
+                var rowData = new List<string>();
+                for (int col = 1; col <= colCount; col++)
+                {
+                    var cellValue = worksheet.Cells[row, col].Text ?? string.Empty;
+                    rowData.Add(cellValue);
+
+                    // Track max column width for formatting
+                    if (cellValue.Length > columnWidths[col - 1])
+                    {
+                        columnWidths[col - 1] = Math.Min(cellValue.Length, MaxColumnWidthChars);
+                    }
+                }
+                tableData.Add(rowData);
+            }
+
+            // Create PDF using QuestPDF - render as text lines with proper formatting
+            var outputStream = new MemoryStream();
+
+            // Build text content for PDF
+            var textBuilder = new StringBuilder();
+
+            // Add truncation warning if applicable
+            if (wasTruncated)
+            {
+                textBuilder.AppendLine($"WARNING: Document truncated to {MaxRowsForXlsxToPdf} of {originalRowCount} rows");
+                textBuilder.AppendLine(new string('-', 80));
+                textBuilder.AppendLine();
+            }
+
+            for (int row = 0; row < tableData.Count; row++)
+            {
+                var rowData = tableData[row];
+                var line = string.Join(" | ", rowData.Select((cell, col) =>
+                    cell.PadRight(columnWidths[col])));
+                textBuilder.AppendLine(line);
+                textBuilder.AppendLine(new string('-', line.Length > 80 ? 80 : line.Length));
+            }
+
+            var textContent = textBuilder.ToString();
+
+            QuestPDF.Fluent.Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4.Landscape());
+                    page.Margin(0.5f, Unit.Centimetre);
+                    page.DefaultTextStyle(x => x.FontSize(7).FontFamily(QuestPDF.Helpers.Fonts.CourierNew));
+
+                    page.Content().Text(textContent);
+                });
+            }).GeneratePdf(outputStream);
+
+            outputStream.Position = 0;
+            return await Task.FromResult(outputStream);
         }
 
         #endregion
