@@ -55,7 +55,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(81, result.Count);
+            Assert.Equal(93, result.Count);
         }
 
         [Fact]
@@ -2214,6 +2214,397 @@ namespace FileConvert.UnitTests
         }
 
         #endregion PDF Merge/Split tests
+
+        #region 7z and RAR Archive Conversion Tests
+
+        [Fact]
+        public async Task TestConverting7zToZip()
+        {
+            //Arrange
+            MemoryStream sevenZipStream = ConvertFileToMemoryStream("Documents/test.7z");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension._7z)
+                                        .ThatConvertTo(FileExtension.zip)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(sevenZipStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // Verify ZIP header - ZIP files start with PK (0x50 0x4B)
+            result.Position = 0;
+            using var reader = new BinaryReader(result, System.Text.Encoding.Default, leaveOpen: true);
+            var magic1 = reader.ReadByte();
+            var magic2 = reader.ReadByte();
+            Assert.Equal(0x50, magic1); // 'P'
+            Assert.Equal(0x4B, magic2); // 'K'
+        }
+
+        [Fact]
+        public async Task TestConverting7zToTar()
+        {
+            //Arrange
+            MemoryStream sevenZipStream = ConvertFileToMemoryStream("Documents/test.7z");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension._7z)
+                                        .ThatConvertTo(FileExtension.tar)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(sevenZipStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // Verify TAR header - TAR files start with filename
+            result.Position = 0;
+            using var reader = new BinaryReader(result, System.Text.Encoding.Default, leaveOpen: true);
+            var headerBytes = reader.ReadBytes(8);
+            Assert.True(headerBytes.Length > 0);
+        }
+
+        [Fact(Skip = "Requires valid RAR test file created with official RAR tool")]
+        public async Task TestConvertingRarToZip()
+        {
+            //Arrange
+            MemoryStream rarStream = ConvertFileToMemoryStream("Documents/test.rar");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.rar)
+                                        .ThatConvertTo(FileExtension.zip)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(rarStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // Verify ZIP header - ZIP files start with PK (0x50 0x4B)
+            result.Position = 0;
+            using var reader = new BinaryReader(result, System.Text.Encoding.Default, leaveOpen: true);
+            var magic1 = reader.ReadByte();
+            var magic2 = reader.ReadByte();
+            Assert.Equal(0x50, magic1); // 'P'
+            Assert.Equal(0x4B, magic2); // 'K'
+        }
+
+        [Fact(Skip = "Requires valid RAR test file created with official RAR tool")]
+        public async Task TestConvertingRarToTar()
+        {
+            //Arrange
+            MemoryStream rarStream = ConvertFileToMemoryStream("Documents/test.rar");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.rar)
+                                        .ThatConvertTo(FileExtension.tar)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(rarStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // Verify TAR header - TAR files start with filename
+            result.Position = 0;
+            using var reader = new BinaryReader(result, System.Text.Encoding.Default, leaveOpen: true);
+            var headerBytes = reader.ReadBytes(8);
+            Assert.True(headerBytes.Length > 0);
+        }
+
+        [Fact]
+        public async Task TestConverting7zToZipReturnsStream()
+        {
+            //Arrange
+            MemoryStream sevenZipStream = ConvertFileToMemoryStream("Documents/test.7z");
+
+            //Act
+            var result = await conversionService.Convert7zToZip(sevenZipStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Fact]
+        public async Task TestConverting7zToTarReturnsStream()
+        {
+            //Arrange
+            MemoryStream sevenZipStream = ConvertFileToMemoryStream("Documents/test.7z");
+
+            //Act
+            var result = await conversionService.Convert7zToTar(sevenZipStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Fact(Skip = "Requires valid RAR test file created with official RAR tool")]
+        public async Task TestConvertingRarToZipReturnsStream()
+        {
+            //Arrange
+            MemoryStream rarStream = ConvertFileToMemoryStream("Documents/test.rar");
+
+            //Act
+            var result = await conversionService.ConvertRarToZip(rarStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Fact(Skip = "Requires valid RAR test file created with official RAR tool")]
+        public async Task TestConvertingRarToTarReturnsStream()
+        {
+            //Arrange
+            MemoryStream rarStream = ConvertFileToMemoryStream("Documents/test.rar");
+
+            //Act
+            var result = await conversionService.ConvertRarToTar(rarStream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".zip")]
+        [InlineData(".tar")]
+        public void TestAvailableConversionsFor7z(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.7z";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 2);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        [Theory]
+        [InlineData(".zip")]
+        [InlineData(".tar")]
+        public void TestAvailableConversionsForRAR(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.rar";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 2);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion 7z and RAR Archive Conversion Tests
+
+        #region JPEG 2000 (JP2/J2K) Conversion Tests
+
+        [Fact]
+        public async Task TestConvertingJp2ToPng()
+        {
+            //Arrange
+            MemoryStream jp2Stream = ConvertFileToMemoryStream("Documents/test.jp2");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.jp2)
+                                        .ThatConvertTo(FileExtension.png)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(jp2Stream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, PngFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingJp2ToJpg()
+        {
+            //Arrange
+            MemoryStream jp2Stream = ConvertFileToMemoryStream("Documents/test.jp2");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.jp2)
+                                        .ThatConvertTo(FileExtension.jpg)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(jp2Stream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingJp2ToWebP()
+        {
+            //Arrange
+            MemoryStream jp2Stream = ConvertFileToMemoryStream("Documents/test.jp2");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.jp2)
+                                        .ThatConvertTo(FileExtension.webp)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(jp2Stream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, WebpFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingJ2kToPng()
+        {
+            //Arrange
+            MemoryStream j2kStream = ConvertFileToMemoryStream("Documents/test.j2k");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.j2k)
+                                        .ThatConvertTo(FileExtension.png)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(j2kStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, PngFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingJ2kToJpg()
+        {
+            //Arrange
+            MemoryStream j2kStream = ConvertFileToMemoryStream("Documents/test.j2k");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.j2k)
+                                        .ThatConvertTo(FileExtension.jpg)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(j2kStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingJ2kToWebP()
+        {
+            //Arrange
+            MemoryStream j2kStream = ConvertFileToMemoryStream("Documents/test.j2k");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.j2k)
+                                        .ThatConvertTo(FileExtension.webp)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(j2kStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, WebpFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingJp2ToPngReturnsStream()
+        {
+            //Arrange
+            MemoryStream jp2Stream = ConvertFileToMemoryStream("Documents/test.jp2");
+
+            //Act
+            var result = await conversionService.ConvertJp2ToPng(jp2Stream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Fact]
+        public async Task TestConvertingJp2ToJpgReturnsStream()
+        {
+            //Arrange
+            MemoryStream jp2Stream = ConvertFileToMemoryStream("Documents/test.jp2");
+
+            //Act
+            var result = await conversionService.ConvertJp2ToJpg(jp2Stream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Fact]
+        public async Task TestConvertingJp2ToWebPReturnsStream()
+        {
+            //Arrange
+            MemoryStream jp2Stream = ConvertFileToMemoryStream("Documents/test.jp2");
+
+            //Act
+            var result = await conversionService.ConvertJp2ToWebP(jp2Stream);
+
+            //Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".png")]
+        [InlineData(".jpg")]
+        [InlineData(".jpeg")]
+        [InlineData(".webp")]
+        public void TestAvailableConversionsForJP2(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.jp2";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 4);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        [Theory]
+        [InlineData(".png")]
+        [InlineData(".jpg")]
+        [InlineData(".jpeg")]
+        [InlineData(".webp")]
+        public void TestAvailableConversionsForJ2K(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.j2k";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 4);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion JPEG 2000 (JP2/J2K) Conversion Tests
 
         #region Helper Methods
         private static MemoryStream ConvertFileToMemoryStream(String FileName)

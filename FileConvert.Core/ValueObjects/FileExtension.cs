@@ -39,6 +39,10 @@ namespace FileConvert.Core.ValueObjects
         public static FileExtension bz2 { get { return new FileExtension(".bz2"); } }
         public static FileExtension tbz2 { get { return new FileExtension(".tbz2"); } }
         public static FileExtension qr { get { return new FileExtension(".qr"); } }
+        public static FileExtension _7z { get { return new FileExtension(".7z"); } }
+        public static FileExtension rar { get { return new FileExtension(".rar"); } }
+        public static FileExtension jp2 { get { return new FileExtension(".jp2"); } }
+        public static FileExtension j2k { get { return new FileExtension(".j2k"); } }
 
         public static implicit operator string(FileExtension value)
         {
