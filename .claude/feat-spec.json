@@ -1,0 +1,120 @@
+{
+  "feature": "Refactor large files - break down FileConversionService.cs and ConversionTests.cs into smaller, focused files",
+  "created": "2026-03-15T12:00:00Z",
+  "acceptance_criteria": [
+    {
+      "id": "AC001",
+      "description": "Create IImageConverter interface and ImageConverter.cs for basic image conversions (jpg, png, gif, webp)",
+      "passes": false,
+      "test_steps": ["Build project", "Run unit tests", "Verify conversions still work"]
+    },
+    {
+      "id": "AC002",
+      "description": "Create ITiffConverter and TiffConverter.cs for TIFF format conversions",
+      "passes": false,
+      "test_steps": ["Build project", "Run TIFF conversion tests"]
+    },
+    {
+      "id": "AC003",
+      "description": "Create ISvgConverter and SvgConverter.cs for SVG conversions",
+      "passes": false,
+      "test_steps": ["Build project", "Run SVG conversion tests"]
+    },
+    {
+      "id": "AC004",
+      "description": "Create IModernImageConverter and ModernImageConverter.cs for HEIC/AVIF/JXL/DNG/JP2 conversions",
+      "passes": false,
+      "test_steps": ["Build project", "Run modern image format tests"]
+    },
+    {
+      "id": "AC005",
+      "description": "Create IDataConverter and DataConverter.cs for CSV/JSON/XML/YAML/TSV conversions",
+      "passes": false,
+      "test_steps": ["Build project", "Run data format tests"]
+    },
+    {
+      "id": "AC006",
+      "description": "Create IDocumentConverter and DocumentConverter.cs for DOCX/XLSX/PPTX/EPUB/MD conversions",
+      "passes": false,
+      "test_steps": ["Build project", "Run document conversion tests"]
+    },
+    {
+      "id": "AC007",
+      "description": "Create IPdfConverter and PdfConverter.cs for PDF-related conversions",
+      "passes": false,
+      "test_steps": ["Build project", "Run PDF conversion tests"]
+    },
+    {
+      "id": "AC008",
+      "description": "Create IArchiveConverter and ArchiveConverter.cs for archive format conversions",
+      "passes": false,
+      "test_steps": ["Build project", "Run archive conversion tests"]
+    },
+    {
+      "id": "AC009",
+      "description": "Create ISpecialConverter and SpecialConverter.cs for QR/Barcode conversions",
+      "passes": false,
+      "test_steps": ["Build project", "Run special conversion tests"]
+    },
+    {
+      "id": "AC010",
+      "description": "Refactor FileConversionService to delegate to specialized converters",
+      "passes": false,
+      "test_steps": ["Build project", "Run all unit tests", "Verify all conversions work"]
+    },
+    {
+      "id": "AC011",
+      "description": "Split ConversionTests.cs into category-specific test files matching converter structure",
+      "passes": false,
+      "test_steps": ["Build project", "Run all unit tests", "Verify test count matches original"]
+    },
+    {
+      "id": "AC012",
+      "description": "Remove dead code and commented-out methods from all files",
+      "passes": false,
+      "test_steps": ["Build project", "Run all tests"]
+    }
+  ],
+  "out_of_scope": [
+    "Adding new conversion types",
+    "Changing conversion behavior",
+    "Performance optimization",
+    "API changes"
+  ],
+  "dependencies": [
+    "FileConvert.Core interfaces",
+    "Existing conversion implementations"
+  ],
+  "target_files": {
+    "FileConversionService.cs": {
+      "current_lines": 3576,
+      "target": "< 200 lines (delegation only)",
+      "categories": [
+        "Image conversions (jpg, png, gif, webp)",
+        "TIFF conversions",
+        "SVG conversions",
+        "Modern image formats (HEIC, AVIF, JXL, DNG, JP2)",
+        "Data formats (CSV, JSON, XML, YAML, TSV)",
+        "Documents (DOCX, XLSX, PPTX, EPUB, MD)",
+        "PDF operations",
+        "Archives (GZ, TAR, BZ2, ZIP, 7Z, RAR)",
+        "Special (QR, Barcode)"
+      ]
+    },
+    "ConversionTests.cs": {
+      "current_lines": 3381,
+      "target": "Multiple files ~300-500 lines each",
+      "categories": [
+        "ImageConversionTests.cs",
+        "TiffConversionTests.cs",
+        "SvgConversionTests.cs",
+        "ModernImageConversionTests.cs",
+        "DataConversionTests.cs",
+        "DocumentConversionTests.cs",
+        "PdfConversionTests.cs",
+        "ArchiveConversionTests.cs",
+        "SpecialConversionTests.cs"
+      ]
+    }
+  }
+}
