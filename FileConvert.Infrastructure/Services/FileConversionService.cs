@@ -70,6 +70,8 @@ namespace FileConvert.Infrastructure
         private const long MaxUncompressedSize = 1024 * 1024 * 500; // 500MB max per entry
         private const long MaxTotalUncompressedSize = 1024 * 1024 * 1024; // 1GB max total
         private const int MaxEntryCount = 10000;
+        private const int MaxTextLinesForImageConversion = 10000; // Maximum lines to process for image conversion
+        private const int MaxTextContentLength = 1000000; // Maximum text content length in characters
         private static readonly HashSet<string> BlockElements = new(StringComparer.OrdinalIgnoreCase)
         {
             "p", "div", "br", "h1", "h2", "h3", "h4", "h5", "h6", "li", "tr"
@@ -157,6 +159,16 @@ namespace FileConvert.Infrastructure
 
             // PPTX to PDF conversion - high value presentation conversion
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.pptx, FileExtension.pdf, ConvertPptxToPdf));
+
+            // PDF to Image conversions - extract content and render to images
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.pdf, FileExtension.png, ConvertPdfToPng));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.pdf, FileExtension.jpg, ConvertPdfToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.pdf, FileExtension.jpeg, ConvertPdfToJpg));
+
+            // PPTX to Image conversions - render slides to images
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.pptx, FileExtension.png, ConvertPptxToPng));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.pptx, FileExtension.jpg, ConvertPptxToJpg));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.pptx, FileExtension.jpeg, ConvertPptxToJpg));
 
             // HTML to PDF conversion - high value document conversion
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.html, FileExtension.pdf, ConvertHtmlToPdf));
@@ -2845,6 +2857,7 @@ li { margin: 4px 0; }";
 
         /// <summary>
         /// Extracts text content from a slide's shape tree.
+        /// Limits extraction to prevent unbounded memory allocation.
         /// </summary>
         private string ExtractTextFromSlide(DocumentFormat.OpenXml.Presentation.ShapeTree shapeTree)
         {
@@ -2852,11 +2865,19 @@ li { margin: 4px 0; }";
 
             foreach (var shape in shapeTree.Elements<DocumentFormat.OpenXml.Presentation.Shape>())
             {
+                // Check if we've reached the maximum text content length
+                if (textBuilder.Length >= MaxTextContentLength)
+                    break;
+
                 var textBody = shape.TextBody;
                 if (textBody != null)
                 {
                     foreach (var paragraph in textBody.Elements<DocumentFormat.OpenXml.Drawing.Paragraph>())
                     {
+                        // Check limit before processing each paragraph
+                        if (textBuilder.Length >= MaxTextContentLength)
+                            break;
+
                         var paragraphText = new StringBuilder();
                         foreach (var run in paragraph.Elements<DocumentFormat.OpenXml.Drawing.Run>())
                         {
@@ -3205,6 +3226,349 @@ li { margin: 4px 0; }";
                 outputStream.Position = 0;
                 return Task.FromResult(outputStream);
             }
+        }
+
+        #endregion
+
+        #region PDF to Image Conversion Methods
+
+        /// <summary>
+        /// Converts a PDF document to PNG image format.
+        /// Extracts text content from the PDF and renders it to a PNG image using SkiaSharp.
+        /// For multi-page PDFs, renders the first page.
+        /// </summary>
+        /// <param name="pdfStream">The PDF stream to convert</param>
+        /// <returns>A PNG image stream containing the rendered PDF content</returns>
+        public Task<MemoryStream> ConvertPdfToPng(MemoryStream pdfStream)
+        {
+            return Task.FromResult(ConvertPdfToImage(pdfStream, SKEncodedImageFormat.Png, SKColors.White, 100));
+        }
+
+        /// <summary>
+        /// Converts a PDF document to JPG/JPEG image format.
+        /// Extracts text content from the PDF and renders it to a JPG image using SkiaSharp.
+        /// For multi-page PDFs, renders the first page.
+        /// </summary>
+        /// <param name="pdfStream">The PDF stream to convert</param>
+        /// <returns>A JPG image stream containing the rendered PDF content</returns>
+        public Task<MemoryStream> ConvertPdfToJpg(MemoryStream pdfStream)
+        {
+            return Task.FromResult(ConvertPdfToImage(pdfStream, SKEncodedImageFormat.Jpeg, SKColors.White, 80));
+        }
+
+        /// <summary>
+        /// Core method for PDF to image conversion.
+        /// Uses PdfPig to extract text content and SkiaSharp to render to an image.
+        /// </summary>
+        private MemoryStream ConvertPdfToImage(
+            MemoryStream pdfStream,
+            SKEncodedImageFormat format,
+            SKColor backgroundColor,
+            int quality)
+        {
+            // Security: Validate input size before processing
+            if (pdfStream.Length > MaxUncompressedSize)
+                throw new InvalidOperationException($"Input exceeds maximum allowed size of {MaxUncompressedSize / (1024 * 1024)}MB");
+
+            pdfStream.Position = 0;
+
+            PdfDocument document;
+            try
+            {
+                document = PdfDocument.Open(pdfStream);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to parse PDF document: {ex.Message}", ex);
+            }
+
+            using var pdfDoc = document;
+
+            // Only get the first page - avoid materializing all pages for efficiency
+            UglyToad.PdfPig.Content.Page firstPage;
+            try
+            {
+                firstPage = pdfDoc.GetPages().FirstOrDefault();
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to read PDF pages: {ex.Message}", ex);
+            }
+
+            if (firstPage == null)
+            {
+                throw new ArgumentException("PDF document contains no pages");
+            }
+            var pageText = firstPage.Text;
+
+            if (string.IsNullOrWhiteSpace(pageText))
+            {
+                throw new ArgumentException("PDF page contains no extractable text content");
+            }
+
+            // Define image dimensions (A4 proportions at 150 DPI equivalent)
+            const int width = 1240;
+            const int height = 1754;
+            const int margin = 60;
+            const int lineHeight = 24;
+            const int maxCharsPerLine = 90;
+
+            var outputStream = new MemoryStream();
+
+            using (var bitmap = new SKBitmap(width, height))
+            using (var canvas = new SKCanvas(bitmap))
+            {
+                canvas.Clear(backgroundColor);
+
+                using var paint = new SKPaint
+                {
+                    Color = SKColors.Black,
+                    IsAntialias = true
+                };
+                using var font = new SKFont(SKTypeface.FromFamilyName("Arial"), 16);
+
+                // Split text into lines and wrap long lines
+                var textLines = pageText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                var wrappedLines = new List<string>();
+
+                foreach (var line in textLines)
+                {
+                    // Security: Limit number of lines processed to prevent unbounded memory allocation
+                    if (wrappedLines.Count >= MaxTextLinesForImageConversion)
+                        break;
+
+                    var trimmedLine = line.Trim();
+                    if (string.IsNullOrEmpty(trimmedLine)) continue;
+
+                    // Wrap long lines
+                    var currentLine = "";
+                    foreach (var word in trimmedLine.Split(' '))
+                    {
+                        if ((currentLine + " " + word).Trim().Length <= maxCharsPerLine)
+                        {
+                            currentLine = string.IsNullOrEmpty(currentLine) ? word : currentLine + " " + word;
+                        }
+                        else
+                        {
+                            if (!string.IsNullOrEmpty(currentLine))
+                                wrappedLines.Add(currentLine);
+                            currentLine = word;
+                        }
+                    }
+                    if (!string.IsNullOrEmpty(currentLine))
+                        wrappedLines.Add(currentLine);
+                }
+
+                // Draw text lines
+                float y = margin;
+                foreach (var textLine in wrappedLines.Take((height - 2 * margin) / lineHeight))
+                {
+                    canvas.DrawText(textLine, margin, y, font, paint);
+                    y += lineHeight;
+                }
+
+                canvas.Flush();
+
+                using var image = SKImage.FromBitmap(bitmap);
+                using var data = image.Encode(format, quality);
+                data.SaveTo(outputStream);
+            }
+
+            outputStream.Position = 0;
+            return outputStream;
+        }
+
+        #endregion
+
+        #region PPTX to Image Conversion Methods
+
+        /// <summary>
+        /// Converts a PowerPoint presentation to PNG image format.
+        /// Extracts text content from the first slide and renders it to a PNG image.
+        /// </summary>
+        /// <param name="pptxStream">The PPTX stream to convert</param>
+        /// <returns>A PNG image stream containing the rendered slide content</returns>
+        public Task<MemoryStream> ConvertPptxToPng(MemoryStream pptxStream)
+        {
+            return Task.FromResult(ConvertPptxToImage(pptxStream, SKEncodedImageFormat.Png, SKColors.White, 100));
+        }
+
+        /// <summary>
+        /// Converts a PowerPoint presentation to JPG/JPEG image format.
+        /// Extracts text content from the first slide and renders it to a JPG image.
+        /// </summary>
+        /// <param name="pptxStream">The PPTX stream to convert</param>
+        /// <returns>A JPG image stream containing the rendered slide content</returns>
+        public Task<MemoryStream> ConvertPptxToJpg(MemoryStream pptxStream)
+        {
+            return Task.FromResult(ConvertPptxToImage(pptxStream, SKEncodedImageFormat.Jpeg, SKColors.White, 80));
+        }
+
+        /// <summary>
+        /// Core method for PPTX to image conversion.
+        /// Uses DocumentFormat.OpenXml to extract text content and SkiaSharp to render to an image.
+        /// </summary>
+        private MemoryStream ConvertPptxToImage(
+            MemoryStream pptxStream,
+            SKEncodedImageFormat format,
+            SKColor backgroundColor,
+            int quality)
+        {
+            // Security: Validate input size before processing
+            if (pptxStream.Length > MaxUncompressedSize)
+                throw new InvalidOperationException($"Input exceeds maximum allowed size of {MaxUncompressedSize / (1024 * 1024)}MB");
+
+            pptxStream.Position = 0;
+
+            var slideTexts = new List<string>();
+            var pptxCopy = new MemoryStream(pptxStream.ToArray(), true);
+
+            DocumentFormat.OpenXml.Packaging.PresentationDocument presentation;
+            try
+            {
+                presentation = DocumentFormat.OpenXml.Packaging.PresentationDocument.Open(pptxCopy, false);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to parse PPTX document: {ex.Message}", ex);
+            }
+
+            using var presDoc = presentation;
+            var presentationPart = presDoc.PresentationPart;
+
+            if (presentationPart == null)
+            {
+                throw new ArgumentException("PPTX file has no presentation part");
+            }
+
+            IEnumerable<DocumentFormat.OpenXml.Packaging.SlidePart> slideParts;
+            try
+            {
+                slideParts = presentationPart.SlideParts;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to read PPTX slide parts: {ex.Message}", ex);
+            }
+
+            if (slideParts == null || !slideParts.Any())
+            {
+                throw new ArgumentException("PPTX presentation contains no slides");
+            }
+
+            // Get text from the first slide
+            var firstSlide = slideParts.First();
+            if (firstSlide?.Slide?.CommonSlideData?.ShapeTree != null)
+            {
+                var slideText = ExtractTextFromSlide(firstSlide.Slide.CommonSlideData.ShapeTree);
+                if (!string.IsNullOrWhiteSpace(slideText))
+                {
+                    slideTexts.Add(slideText);
+                }
+            }
+
+            if (slideTexts.Count == 0)
+            {
+                throw new ArgumentException("PPTX slide contains no extractable text content");
+            }
+
+            var textContent = slideTexts[0];
+
+            // Define image dimensions (16:9 presentation proportions)
+            const int width = 1920;
+            const int height = 1080;
+            const int margin = 80;
+            const int titleHeight = 60;
+            const int lineHeight = 32;
+            const int maxCharsPerLine = 100;
+
+            var outputStream = new MemoryStream();
+
+            using (var bitmap = new SKBitmap(width, height))
+            using (var canvas = new SKCanvas(bitmap))
+            {
+                canvas.Clear(backgroundColor);
+
+                // Draw slide title
+                using var titlePaint = new SKPaint
+                {
+                    Color = SKColors.DarkBlue,
+                    IsAntialias = true
+                };
+                using var titleFont = new SKFont(
+                    SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright),
+                    36);
+
+                canvas.DrawText("Slide 1", margin, margin + titleHeight / 2f, titleFont, titlePaint);
+
+                // Draw separator line
+                using var linePaint = new SKPaint
+                {
+                    Color = SKColors.LightGray,
+                    StrokeWidth = 2,
+                    Style = SKPaintStyle.Stroke
+                };
+                canvas.DrawLine(margin, margin + titleHeight, width - margin, margin + titleHeight, linePaint);
+
+                // Draw content text
+                using var contentPaint = new SKPaint
+                {
+                    Color = SKColors.Black,
+                    IsAntialias = true
+                };
+                using var contentFont = new SKFont(SKTypeface.FromFamilyName("Arial"), 20);
+
+                // Split text into lines and wrap long lines
+                var textLines = textContent.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                var wrappedLines = new List<string>();
+
+                foreach (var line in textLines)
+                {
+                    // Security: Limit number of lines processed to prevent unbounded memory allocation
+                    if (wrappedLines.Count >= MaxTextLinesForImageConversion)
+                        break;
+
+                    var trimmedLine = line.Trim();
+                    if (string.IsNullOrEmpty(trimmedLine)) continue;
+
+                    // Wrap long lines
+                    var currentLine = "";
+                    foreach (var word in trimmedLine.Split(' '))
+                    {
+                        if ((currentLine + " " + word).Trim().Length <= maxCharsPerLine)
+                        {
+                            currentLine = string.IsNullOrEmpty(currentLine) ? word : currentLine + " " + word;
+                        }
+                        else
+                        {
+                            if (!string.IsNullOrEmpty(currentLine))
+                                wrappedLines.Add(currentLine);
+                            currentLine = word;
+                        }
+                    }
+                    if (!string.IsNullOrEmpty(currentLine))
+                        wrappedLines.Add(currentLine);
+                }
+
+                // Draw text lines below title
+                float y = margin + titleHeight + 40;
+                int maxLines = (height - (int)y - margin) / lineHeight;
+
+                foreach (var textLine in wrappedLines.Take(maxLines))
+                {
+                    canvas.DrawText(textLine, margin, y, contentFont, contentPaint);
+                    y += lineHeight;
+                }
+
+                canvas.Flush();
+
+                using var image = SKImage.FromBitmap(bitmap);
+                using var data = image.Encode(format, quality);
+                data.SaveTo(outputStream);
+            }
+
+            outputStream.Position = 0;
+            return outputStream;
         }
 
         #endregion

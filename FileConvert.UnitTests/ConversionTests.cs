@@ -58,7 +58,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(125, result.Count);
+            Assert.Equal(131, result.Count);
         }
 
         [Fact]
@@ -3005,6 +3005,172 @@ namespace FileConvert.UnitTests
         }
 
         #endregion HTML to PDF Conversion Tests
+
+        #region PDF to Image Conversion Tests
+
+        [Fact]
+        public async Task TestConvertingPdfToPngUsingConvertorPattern()
+        {
+            //Arrange
+            var pdfStream = ConvertFileToMemoryStream("Documents/test.pdf");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.pdf)
+                                        .ThatConvertTo(FileExtension.png)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(pdfStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, PngFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingPdfToJpgUsingConvertorPattern()
+        {
+            //Arrange
+            var pdfStream = ConvertFileToMemoryStream("Documents/test.pdf");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.pdf)
+                                        .ThatConvertTo(FileExtension.jpg)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(pdfStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingPdfToJpegUsingConvertorPattern()
+        {
+            //Arrange
+            var pdfStream = ConvertFileToMemoryStream("Documents/test.pdf");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.pdf)
+                                        .ThatConvertTo(FileExtension.jpeg)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(pdfStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
+        }
+
+        [Theory]
+        [InlineData(".png")]
+        [InlineData(".jpg")]
+        [InlineData(".jpeg")]
+        [InlineData(".txt")]
+        public void TestAvailableConversionsForPdf(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.pdf";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 4);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion PDF to Image Conversion Tests
+
+        #region PPTX to Image Conversion Tests
+
+        [Fact]
+        public async Task TestConvertingPptxToPngUsingConvertorPattern()
+        {
+            //Arrange
+            var pptxStream = ConvertFileToMemoryStream("Documents/test.pptx");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.pptx)
+                                        .ThatConvertTo(FileExtension.png)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(pptxStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, PngFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingPptxToJpgUsingConvertorPattern()
+        {
+            //Arrange
+            var pptxStream = ConvertFileToMemoryStream("Documents/test.pptx");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.pptx)
+                                        .ThatConvertTo(FileExtension.jpg)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(pptxStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
+        }
+
+        [Fact]
+        public async Task TestConvertingPptxToJpegUsingConvertorPattern()
+        {
+            //Arrange
+            var pptxStream = ConvertFileToMemoryStream("Documents/test.pptx");
+
+            var AvailableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.pptx)
+                                        .ThatConvertTo(FileExtension.jpeg)
+                                        .FirstOrDefault();
+
+            //Act
+            var result = await AvailableConvertor.Convert(pptxStream);
+
+            //Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            Assert.True(IsImageFormatCorrect(result, JpegFormat.Instance));
+        }
+
+        [Theory]
+        [InlineData(".pdf")]
+        [InlineData(".png")]
+        [InlineData(".jpg")]
+        [InlineData(".jpeg")]
+        public void TestAvailableConversionsForPptx(string conversionAvailable)
+        {
+            //Arrange
+            var DocumentName = "testdoc.pptx";
+
+            //Act
+            var result = conversionService.GetConvertorsForFile(DocumentName);
+
+            //Assert
+            Assert.True(result.Count != 0);
+            Assert.True(result.Count == 4);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        #endregion PPTX to Image Conversion Tests
 
         #region Helper Methods
         private static MemoryStream ConvertFileToMemoryStream(String FileName)
