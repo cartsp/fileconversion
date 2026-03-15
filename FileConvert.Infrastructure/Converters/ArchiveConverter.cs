@@ -128,12 +128,17 @@ namespace FileConvert.Infrastructure.Converters
 
                 foreach (var zipEntry in entries)
                 {
-                    if (zipEntry.Size > MaxUncompressedSize)
+                    // Check size - handle unknown sizes (-1) by tracking actual bytes read
+                    var hasKnownSize = zipEntry.Size > 0;
+                    if (hasKnownSize && zipEntry.Size > MaxUncompressedSize)
                         throw new InvalidOperationException($"Entry '{zipEntry.Name}' exceeds maximum allowed size");
 
-                    totalExtractedSize += zipEntry.Size;
-                    if (totalExtractedSize > MaxTotalUncompressedSize)
-                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+                    if (hasKnownSize)
+                    {
+                        totalExtractedSize += zipEntry.Size;
+                        if (totalExtractedSize > MaxTotalUncompressedSize)
+                            throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+                    }
 
                     var sanitizedName = SanitizeArchiveEntryPath(zipEntry.Name);
 
@@ -149,7 +154,28 @@ namespace FileConvert.Infrastructure.Converters
 
                     using (var zipInputStream = zipFile.GetInputStream(zipEntry))
                     {
-                        StreamUtils.Copy(zipInputStream, tarOutputStream, buffer);
+                        // For unknown sizes, track bytes during copy
+                        if (!hasKnownSize)
+                        {
+                            int bytesRead;
+                            long entryBytesRead = 0;
+                            while ((bytesRead = zipInputStream.Read(buffer, 0, buffer.Length)) > 0)
+                            {
+                                entryBytesRead += bytesRead;
+                                totalExtractedSize += bytesRead;
+
+                                if (entryBytesRead > MaxUncompressedSize)
+                                    throw new InvalidOperationException($"Entry '{zipEntry.Name}' exceeds maximum allowed size");
+                                if (totalExtractedSize > MaxTotalUncompressedSize)
+                                    throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+
+                                tarOutputStream.Write(buffer, 0, bytesRead);
+                            }
+                        }
+                        else
+                        {
+                            StreamUtils.Copy(zipInputStream, tarOutputStream, buffer);
+                        }
                     }
 
                     tarOutputStream.CloseEntry();
@@ -184,12 +210,17 @@ namespace FileConvert.Infrastructure.Converters
                     if (entryCount > MaxEntryCount)
                         throw new InvalidOperationException("Archive contains too many entries");
 
-                    if (tarEntry.Size > MaxUncompressedSize)
+                    // Check size - handle unknown sizes by tracking actual bytes read
+                    var hasKnownSize = tarEntry.Size > 0;
+                    if (hasKnownSize && tarEntry.Size > MaxUncompressedSize)
                         throw new InvalidOperationException($"Entry '{tarEntry.Name}' exceeds maximum allowed size");
 
-                    totalExtractedSize += tarEntry.Size;
-                    if (totalExtractedSize > MaxTotalUncompressedSize)
-                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+                    if (hasKnownSize)
+                    {
+                        totalExtractedSize += tarEntry.Size;
+                        if (totalExtractedSize > MaxTotalUncompressedSize)
+                            throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+                    }
 
                     var sanitizedName = SanitizeArchiveEntryPath(tarEntry.Name);
 
@@ -200,7 +231,30 @@ namespace FileConvert.Infrastructure.Converters
                     };
 
                     zipOutputStream.PutNextEntry(zipEntry);
-                    StreamUtils.Copy(tarInputStream, zipOutputStream, buffer);
+
+                    // For unknown sizes, track bytes during copy
+                    if (!hasKnownSize)
+                    {
+                        int bytesRead;
+                        long entryBytesRead = 0;
+                        while ((bytesRead = tarInputStream.Read(buffer, 0, buffer.Length)) > 0)
+                        {
+                            entryBytesRead += bytesRead;
+                            totalExtractedSize += bytesRead;
+
+                            if (entryBytesRead > MaxUncompressedSize)
+                                throw new InvalidOperationException($"Entry '{tarEntry.Name}' exceeds maximum allowed size");
+                            if (totalExtractedSize > MaxTotalUncompressedSize)
+                                throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+
+                            zipOutputStream.Write(buffer, 0, bytesRead);
+                        }
+                    }
+                    else
+                    {
+                        StreamUtils.Copy(tarInputStream, zipOutputStream, buffer);
+                    }
+
                     zipOutputStream.CloseEntry();
                 }
             }

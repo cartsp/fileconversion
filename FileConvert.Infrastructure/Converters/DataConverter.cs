@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Xml;
 using System.Xml.Linq;
 using FileConvert.Core.Interfaces;
 using OfficeOpenXml;
@@ -20,13 +21,20 @@ namespace FileConvert.Infrastructure.Converters
     public class DataConverter : IDataConverter
     {
         private static readonly JsonSerializerOptions CachedJsonOptions = new JsonSerializerOptions { WriteIndented = true };
+
+        // Secure YAML deserializer that doesn't allow arbitrary type instantiation
+        // By not calling .WithTagMapping(), we prevent !type tags from instantiating arbitrary types
         private static readonly IDeserializer CachedYamlDeserializer = new DeserializerBuilder()
             .WithNamingConvention(UnderscoredNamingConvention.Instance)
+            .IgnoreUnmatchedProperties()
             .Build();
+
         private static readonly ISerializer CachedYamlSerializer = new SerializerBuilder()
             .WithNamingConvention(UnderscoredNamingConvention.Instance)
             .Build();
+
         private const long MaxUncompressedSize = 1024 * 1024 * 500; // 500MB max
+        private const int MaxXmlEntityExpansion = 1000; // Prevent billion laughs attack
 
         static DataConverter()
         {
@@ -204,7 +212,7 @@ namespace FileConvert.Infrastructure.Converters
         public async Task<MemoryStream> ConvertXmlToJson(MemoryStream xmlStream)
         {
             var xmlString = Encoding.UTF8.GetString(xmlStream.ToArray());
-            var xdoc = XDocument.Parse(xmlString);
+            var xdoc = ParseXmlSecurely(xmlString);
 
             var jsonResult = ConvertXmlElementToJson(xdoc.Root);
 
@@ -214,7 +222,7 @@ namespace FileConvert.Infrastructure.Converters
         public async Task<MemoryStream> ConvertXmlToCsv(MemoryStream xmlStream)
         {
             var xmlString = Encoding.UTF8.GetString(xmlStream.ToArray());
-            var xdoc = XDocument.Parse(xmlString);
+            var xdoc = ParseXmlSecurely(xmlString);
 
             var outputStream = new MemoryStream();
             using (var writer = new StreamWriter(outputStream, Encoding.UTF8, leaveOpen: true))
@@ -258,7 +266,7 @@ namespace FileConvert.Infrastructure.Converters
                 throw new InvalidOperationException($"Input XML exceeds maximum allowed size of {MaxUncompressedSize / (1024 * 1024)}MB");
 
             var xmlString = Encoding.UTF8.GetString(xmlStream.ToArray());
-            var xdoc = XDocument.Parse(xmlString);
+            var xdoc = ParseXmlSecurely(xmlString);
 
             if (xdoc.Root == null)
                 return await WriteStringToStreamAsync(string.Empty);
@@ -625,6 +633,28 @@ namespace FileConvert.Infrastructure.Converters
             {
                 parent.Value = obj.ToString() ?? string.Empty;
             }
+        }
+
+        #endregion
+
+        #region Secure XML Parsing
+
+        /// <summary>
+        /// Parses XML securely to prevent XXE and billion laughs attacks.
+        /// </summary>
+        private static XDocument ParseXmlSecurely(string xmlContent)
+        {
+            var settings = new XmlReaderSettings
+            {
+                DtdProcessing = DtdProcessing.Prohibit,
+                XmlResolver = null,
+                MaxCharactersFromEntities = MaxXmlEntityExpansion,
+                MaxCharactersInDocument = MaxUncompressedSize
+            };
+
+            using var stringReader = new StringReader(xmlContent);
+            using var xmlReader = XmlReader.Create(stringReader, settings);
+            return XDocument.Load(xmlReader);
         }
 
         #endregion
