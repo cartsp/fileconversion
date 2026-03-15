@@ -338,6 +338,19 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.dng, FileExtension.png, ConvertDngToPng));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.dng, FileExtension.webp, ConvertDngToWebp));
 
+            // RTF conversions - Rich Text Format to plain text and HTML (HIGH VALUE)
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.rtf, FileExtension.txt, ConvertRtfToTxt));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.rtf, FileExtension.html, ConvertRtfToHtml));
+
+            // ODP conversions - OpenDocument Presentation to PDF (HIGH VALUE)
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.odp, FileExtension.pdf, ConvertOdpToPdf));
+
+            // ODS conversions - OpenDocument Spreadsheet to CSV (MEDIUM VALUE)
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.ods, FileExtension.csv, ConvertOdsToCsv));
+
+            // ODT conversions - OpenDocument Text to PDF (MEDIUM VALUE)
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.odt, FileExtension.pdf, ConvertOdtToPdf));
+
             Convertors = ConvertorListBuilder.ToImmutable();
         }
 
@@ -3205,6 +3218,743 @@ li { margin: 4px 0; }";
                 outputStream.Position = 0;
                 return Task.FromResult(outputStream);
             }
+        }
+
+        #endregion
+
+        #region RTF Conversion Methods
+
+        /// <summary>
+        /// Converts Rich Text Format (RTF) to plain text.
+        /// Parses RTF control words and extracts text content.
+        /// </summary>
+        public async Task<MemoryStream> ConvertRtfToTxt(MemoryStream rtfStream)
+        {
+            rtfStream.Position = 0;
+            var rtfContent = Encoding.UTF8.GetString(rtfStream.ToArray());
+
+            if (string.IsNullOrWhiteSpace(rtfContent))
+            {
+                return await WriteStringToStreamAsync(string.Empty);
+            }
+
+            // Verify RTF header
+            if (!rtfContent.StartsWith("{\\rtf", StringComparison.Ordinal))
+            {
+                throw new ArgumentException("Invalid RTF format - missing RTF header");
+            }
+
+            var plainText = ExtractTextFromRtf(rtfContent);
+            return await WriteStringToStreamAsync(plainText);
+        }
+
+        /// <summary>
+        /// Converts Rich Text Format (RTF) to HTML.
+        /// Parses RTF control words and generates corresponding HTML markup.
+        /// </summary>
+        public async Task<MemoryStream> ConvertRtfToHtml(MemoryStream rtfStream)
+        {
+            rtfStream.Position = 0;
+            var rtfContent = Encoding.UTF8.GetString(rtfStream.ToArray());
+
+            if (string.IsNullOrWhiteSpace(rtfContent))
+            {
+                return await WriteStringToStreamAsync("<!DOCTYPE html><html><body></body></html>");
+            }
+
+            // Verify RTF header
+            if (!rtfContent.StartsWith("{\\rtf", StringComparison.Ordinal))
+            {
+                throw new ArgumentException("Invalid RTF format - missing RTF header");
+            }
+
+            var htmlContent = ConvertRtfToHtmlString(rtfContent);
+            return await WriteStringToStreamAsync(htmlContent);
+        }
+
+        /// <summary>
+        /// Extracts plain text from RTF content by stripping control words.
+        /// </summary>
+        private string ExtractTextFromRtf(string rtf)
+        {
+            var result = new StringBuilder();
+            var i = 0;
+            var length = rtf.Length;
+            var ignoreGroup = 0;
+
+            while (i < length)
+            {
+                var ch = rtf[i];
+
+                if (ch == '{')
+                {
+                    i++;
+                    continue;
+                }
+
+                if (ch == '}')
+                {
+                    if (ignoreGroup > 0) ignoreGroup--;
+                    i++;
+                    continue;
+                }
+
+                if (ch == '\\')
+                {
+                    if (i + 1 >= length) break;
+
+                    var next = rtf[i + 1];
+
+                    // Check for special characters
+                    if (next == '\\' || next == '{' || next == '}')
+                    {
+                        result.Append(next);
+                        i += 2;
+                        continue;
+                    }
+
+                    // Handle \uN for Unicode characters
+                    if (next == 'u' && i + 2 < length && char.IsDigit(rtf[i + 2]))
+                    {
+                        i += 2;
+                        var unicodeStart = i;
+                        while (i < length && (char.IsDigit(rtf[i]) || rtf[i] == '-'))
+                            i++;
+
+                        if (int.TryParse(rtf.Substring(unicodeStart, i - unicodeStart), out var unicodeValue))
+                        {
+                            // RTF uses signed 16-bit, convert to unsigned
+                            if (unicodeValue < 0) unicodeValue += 65536;
+                            result.Append((char)unicodeValue);
+                        }
+
+                        // Skip optional replacement character
+                        if (i < length && rtf[i] == '?') i++;
+                        else if (i < length && rtf[i] == ' ') i++;
+                        continue;
+                    }
+
+                    // Handle \',hh for hex-encoded ANSI characters
+                    if (next == '\'' && i + 3 < length)
+                    {
+                        var hexStr = rtf.Substring(i + 2, 2);
+                        if (byte.TryParse(hexStr, System.Globalization.NumberStyles.HexNumber, null, out var byteValue))
+                        {
+                            result.Append((char)byteValue);
+                        }
+                        i += 4;
+                        continue;
+                    }
+
+                    // Handle \* which indicates a destination - skip the whole group
+                    if (next == '*')
+                    {
+                        ignoreGroup++;
+                        i += 2;
+                        // Skip the control word after \*
+                        while (i < length && (char.IsLetter(rtf[i]) || char.IsDigit(rtf[i])))
+                            i++;
+                        continue;
+                    }
+
+                    // Skip control word (letters) and optional numeric parameter
+                    i += 1;
+                    while (i < length && char.IsLetter(rtf[i]))
+                        i++;
+
+                    // Skip numeric parameter
+                    while (i < length && (char.IsDigit(rtf[i]) || rtf[i] == '-'))
+                        i++;
+
+                    // Skip space delimiter
+                    if (i < length && rtf[i] == ' ')
+                        i++;
+
+                    continue;
+                }
+
+                // Skip newlines and carriage returns in RTF source
+                if (ch == '\n' || ch == '\r')
+                {
+                    i++;
+                    continue;
+                }
+
+                // Regular text character
+                if (ignoreGroup == 0)
+                {
+                    result.Append(ch);
+                }
+                i++;
+            }
+
+            // Clean up extra whitespace
+            var text = result.ToString();
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"[ \t]+", " ");
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"\n\s*\n\s*\n+", "\n\n");
+            return text.Trim();
+        }
+
+        /// <summary>
+        /// Converts RTF content to HTML string with basic formatting preserved.
+        /// </summary>
+        private string ConvertRtfToHtmlString(string rtf)
+        {
+            var html = new StringBuilder();
+            html.AppendLine("<!DOCTYPE html>");
+            html.AppendLine("<html>");
+            html.AppendLine("<head>");
+            html.AppendLine("<meta charset=\"UTF-8\">");
+            html.AppendLine("<style>");
+            html.AppendLine("body { font-family: Calibri, Arial, sans-serif; margin: 20px; }");
+            html.AppendLine("p { margin: 0 0 10px 0; }");
+            html.AppendLine("</style>");
+            html.AppendLine("</head>");
+            html.AppendLine("<body>");
+
+            var i = 0;
+            var length = rtf.Length;
+            var ignoreGroup = 0;
+            var bold = false;
+            var italic = false;
+            var underline = false;
+            var inParagraph = false;
+            var lineStarted = false;
+
+            // Ensure we start a paragraph
+            html.Append("<p>");
+            inParagraph = true;
+
+            while (i < length)
+            {
+                var ch = rtf[i];
+
+                if (ch == '{')
+                {
+                    i++;
+                    continue;
+                }
+
+                if (ch == '}')
+                {
+                    if (ignoreGroup > 0) ignoreGroup--;
+                    i++;
+                    continue;
+                }
+
+                if (ch == '\\')
+                {
+                    if (i + 1 >= length) break;
+
+                    var next = rtf[i + 1];
+
+                    // Escaped characters
+                    if (next == '\\' || next == '{' || next == '}')
+                    {
+                        html.Append(HtmlEncode(next.ToString()));
+                        lineStarted = true;
+                        i += 2;
+                        continue;
+                    }
+
+                    // Unicode character
+                    if (next == 'u' && i + 2 < length && char.IsDigit(rtf[i + 2]))
+                    {
+                        i += 2;
+                        var unicodeStart = i;
+                        while (i < length && (char.IsDigit(rtf[i]) || rtf[i] == '-'))
+                            i++;
+
+                        if (int.TryParse(rtf.Substring(unicodeStart, i - unicodeStart), out var unicodeValue))
+                        {
+                            if (unicodeValue < 0) unicodeValue += 65536;
+                            html.Append(HtmlEncode(((char)unicodeValue).ToString()));
+                            lineStarted = true;
+                        }
+
+                        if (i < length && rtf[i] == '?') i++;
+                        else if (i < length && rtf[i] == ' ') i++;
+                        continue;
+                    }
+
+                    // Hex-encoded ANSI character
+                    if (next == '\'' && i + 3 < length)
+                    {
+                        var hexStr = rtf.Substring(i + 2, 2);
+                        if (byte.TryParse(hexStr, System.Globalization.NumberStyles.HexNumber, null, out var byteValue))
+                        {
+                            html.Append(HtmlEncode(((char)byteValue).ToString()));
+                            lineStarted = true;
+                        }
+                        i += 4;
+                        continue;
+                    }
+
+                    // Skip destination groups
+                    if (next == '*')
+                    {
+                        ignoreGroup++;
+                        i += 2;
+                        while (i < length && (char.IsLetter(rtf[i]) || char.IsDigit(rtf[i])))
+                            i++;
+                        continue;
+                    }
+
+                    // Parse control word
+                    i += 1;
+                    var controlWordStart = i;
+                    while (i < length && char.IsLetter(rtf[i]))
+                        i++;
+
+                    var controlWord = rtf.Substring(controlWordStart, i - controlWordStart);
+
+                    // Parse numeric parameter
+                    var param = 0;
+                    var hasParam = false;
+                    if (i < length && (char.IsDigit(rtf[i]) || rtf[i] == '-'))
+                    {
+                        var negative = rtf[i] == '-';
+                        if (negative) i++;
+                        var paramStart = i;
+                        while (i < length && char.IsDigit(rtf[i]))
+                            i++;
+                        if (int.TryParse(rtf.Substring(paramStart, i - paramStart), out param))
+                        {
+                            hasParam = true;
+                            if (negative) param = -param;
+                        }
+                    }
+
+                    // Skip space delimiter
+                    if (i < length && rtf[i] == ' ')
+                        i++;
+
+                    if (ignoreGroup > 0) continue;
+
+                    // Handle formatting control words
+                    switch (controlWord)
+                    {
+                        case "b":
+                            if (hasParam && param == 0)
+                            {
+                                if (bold) { html.Append("</strong>"); bold = false; }
+                            }
+                            else if (!bold)
+                            {
+                                html.Append("<strong>");
+                                bold = true;
+                            }
+                            break;
+                        case "i":
+                            if (hasParam && param == 0)
+                            {
+                                if (italic) { html.Append("</em>"); italic = false; }
+                            }
+                            else if (!italic)
+                            {
+                                html.Append("<em>");
+                                italic = true;
+                            }
+                            break;
+                        case "ul":
+                            if (!underline)
+                            {
+                                html.Append("<u>");
+                                underline = true;
+                            }
+                            break;
+                        case "ulnone":
+                            if (underline)
+                            {
+                                html.Append("</u>");
+                                underline = false;
+                            }
+                            break;
+                        case "par":
+                        case "line":
+                            // Close current formatting
+                            if (underline) { html.Append("</u>"); underline = false; }
+                            if (italic) { html.Append("</em>"); italic = false; }
+                            if (bold) { html.Append("</strong>"); bold = false; }
+                            html.Append("</p>");
+                            html.AppendLine();
+                            html.Append("<p>");
+                            inParagraph = true;
+                            lineStarted = false;
+                            break;
+                        case "tab":
+                            html.Append("&nbsp;&nbsp;&nbsp;&nbsp;");
+                            lineStarted = true;
+                            break;
+                    }
+
+                    continue;
+                }
+
+                // Skip newlines and carriage returns
+                if (ch == '\n' || ch == '\r')
+                {
+                    i++;
+                    continue;
+                }
+
+                // Regular text character
+                if (ignoreGroup == 0)
+                {
+                    html.Append(HtmlEncode(ch.ToString()));
+                    lineStarted = true;
+                }
+                i++;
+            }
+
+            // Close any open tags
+            if (underline) html.Append("</u>");
+            if (italic) html.Append("</em>");
+            if (bold) html.Append("</strong>");
+            html.Append("</p>");
+
+            html.AppendLine();
+            html.AppendLine("</body>");
+            html.AppendLine("</html>");
+
+            return html.ToString();
+        }
+
+        private static string HtmlEncode(string text)
+        {
+            return text
+                .Replace("&", "&amp;")
+                .Replace("<", "&lt;")
+                .Replace(">", "&gt;")
+                .Replace("\"", "&quot;")
+                .Replace("'", "&#39;");
+        }
+
+        #endregion
+
+        #region OpenDocument Conversion Methods
+
+        /// <summary>
+        /// Converts OpenDocument Presentation (ODP) to PDF.
+        /// ODP files are ZIP archives containing XML content.
+        /// </summary>
+        public Task<MemoryStream> ConvertOdpToPdf(MemoryStream odpStream)
+        {
+            odpStream.Position = 0;
+
+            // Extract text content from ODP
+            var slideContents = ExtractTextFromOpenDocument(odpStream, "content.xml");
+
+            if (slideContents.Count == 0 || string.IsNullOrWhiteSpace(string.Join("", slideContents)))
+            {
+                throw new ArgumentException("ODP file contains no extractable text content");
+            }
+
+            // Create PDF using QuestPDF
+            var outputStream = new MemoryStream();
+
+            QuestPDF.Fluent.Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(QuestPDF.Helpers.PageSizes.Letter.Landscape());
+                    page.Margin(40);
+                    page.DefaultTextStyle(x => x.FontSize(14));
+
+                    page.Content().Column(col =>
+                    {
+                        for (var i = 0; i < slideContents.Count; i++)
+                        {
+                            if (i > 0)
+                            {
+                                // Page break between slides
+                                col.Item().PageBreak();
+                            }
+
+                            col.Item().Text($"Slide {i + 1}")
+                                .FontSize(24)
+                                .Bold()
+                                .FontColor(QuestPDF.Helpers.Colors.Blue.Medium);
+
+                            col.Item().PaddingVertical(10);
+
+                            var slideText = slideContents[i];
+                            if (!string.IsNullOrWhiteSpace(slideText))
+                            {
+                                col.Item().Text(slideText);
+                            }
+                        }
+                    });
+                });
+            }).GeneratePdf(outputStream);
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Converts OpenDocument Spreadsheet (ODS) to CSV.
+        /// ODS files are ZIP archives containing XML content.
+        /// </summary>
+        public async Task<MemoryStream> ConvertOdsToCsv(MemoryStream odsStream)
+        {
+            odsStream.Position = 0;
+
+            // Extract content from ODS
+            var contentXml = ExtractXmlFromOpenDocument(odsStream, "content.xml");
+
+            if (contentXml == null)
+            {
+                throw new ArgumentException("Invalid ODS file - missing content.xml");
+            }
+
+            // Parse the spreadsheet data
+            var rows = ParseOdsSpreadsheet(contentXml);
+
+            // Generate CSV
+            var csvBuilder = new StringBuilder();
+            foreach (var row in rows)
+            {
+                csvBuilder.AppendLine(string.Join(",", row.Select(EscapeCsvField)));
+            }
+
+            return await WriteStringToStreamAsync(csvBuilder.ToString());
+        }
+
+        /// <summary>
+        /// Converts OpenDocument Text (ODT) to PDF.
+        /// ODT files are ZIP archives containing XML content.
+        /// </summary>
+        public Task<MemoryStream> ConvertOdtToPdf(MemoryStream odtStream)
+        {
+            odtStream.Position = 0;
+
+            // Extract text content from ODT
+            var textContent = ExtractTextFromOdt(odtStream);
+
+            if (string.IsNullOrWhiteSpace(textContent))
+            {
+                throw new ArgumentException("ODT file contains no extractable text content");
+            }
+
+            // Create PDF using QuestPDF
+            var outputStream = new MemoryStream();
+
+            QuestPDF.Fluent.Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(QuestPDF.Helpers.PageSizes.A4);
+                    page.Margin(40);
+                    page.DefaultTextStyle(x => x.FontSize(11));
+
+                    page.Content().Text(textContent);
+                });
+            }).GeneratePdf(outputStream);
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Extracts text content from an OpenDocument file for presentation slides.
+        /// Returns a list of slide contents.
+        /// </summary>
+        private List<string> ExtractTextFromOpenDocument(MemoryStream stream, string contentFile)
+        {
+            var slides = new List<string>();
+
+            using (var archive = new ICSharpCode.SharpZipLib.Zip.ZipInputStream(stream))
+            {
+                ZipEntry entry;
+                while ((entry = archive.GetNextEntry()) != null)
+                {
+                    if (entry.Name == contentFile)
+                    {
+                        using var ms = new MemoryStream();
+                        archive.CopyTo(ms);
+                        ms.Position = 0;
+
+                        var xdoc = XDocument.Load(ms);
+
+                        // Define namespaces for OpenDocument
+                        var ns = new System.Xml.XmlNamespaceManager(new System.Xml.NameTable());
+                        ns.AddNamespace("office", "urn:oasis:names:tc:opendocument:xmlns:office:1.0");
+                        ns.AddNamespace("draw", "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0");
+                        ns.AddNamespace("text", "urn:oasis:names:tc:opendocument:xmlns:text:1.0");
+
+                        // Find all draw:page elements (slides)
+                        var slideElements = xdoc.Descendants()
+                            .Where(e => e.Name.LocalName == "page");
+
+                        foreach (var slide in slideElements)
+                        {
+                            var slideText = new StringBuilder();
+
+                            // Extract all text from the slide
+                            foreach (var textElement in slide.Descendants()
+                                .Where(d => d.Name.LocalName == "p" || d.Name.LocalName == "span" || d.Name.LocalName == "h"))
+                            {
+                                var text = textElement.Value;
+                                if (!string.IsNullOrWhiteSpace(text))
+                                {
+                                    slideText.AppendLine(text.Trim());
+                                }
+                            }
+
+                            slides.Add(slideText.ToString().Trim());
+                        }
+
+                        break;
+                    }
+                }
+            }
+
+            return slides;
+        }
+
+        /// <summary>
+        /// Extracts the XML content from an OpenDocument file.
+        /// </summary>
+        private XDocument ExtractXmlFromOpenDocument(MemoryStream stream, string contentFile)
+        {
+            stream.Position = 0;
+            long totalExtractedSize = 0;
+
+            using (var archive = new ICSharpCode.SharpZipLib.Zip.ZipInputStream(stream))
+            {
+                ZipEntry entry;
+                while ((entry = archive.GetNextEntry()) != null)
+                {
+                    // Security: Check entry size to prevent decompression bombs
+                    if (entry.Size > MaxUncompressedSize)
+                    {
+                        throw new InvalidOperationException($"Entry '{entry.Name}' exceeds maximum allowed size");
+                    }
+
+                    // Security: Track cumulative size to prevent decompression bombs
+                    totalExtractedSize += entry.Size;
+                    if (totalExtractedSize > MaxTotalUncompressedSize)
+                    {
+                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+                    }
+
+                    if (entry.Name == contentFile)
+                    {
+                        using var ms = new MemoryStream();
+                        archive.CopyTo(ms);
+                        ms.Position = 0;
+                        return XDocument.Load(ms);
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Parses ODS spreadsheet XML and returns row data.
+        /// </summary>
+        private List<List<string>> ParseOdsSpreadsheet(XDocument xdoc)
+        {
+            var rows = new List<List<string>>();
+
+            // Find all table:row elements (OpenDocument uses table-row as LocalName)
+            var rowElements = xdoc.Descendants()
+                .Where(e => e.Name.LocalName == "table-row");
+
+            foreach (var row in rowElements)
+            {
+                var rowData = new List<string>();
+
+                // Find all table:cell elements (OpenDocument uses table-cell as LocalName)
+                var cells = row.Descendants()
+                    .Where(c => c.Name.LocalName == "table-cell");
+
+                foreach (var cell in cells)
+                {
+                    // Get cell value from child text:p element
+                    var cellValue = cell.Descendants()
+                        .Where(d => d.Name.LocalName == "p")
+                        .Select(d => d.Value)
+                        .FirstOrDefault() ?? string.Empty;
+
+                    rowData.Add(cellValue);
+                }
+
+                if (rowData.Count > 0)
+                {
+                    rows.Add(rowData);
+                }
+            }
+
+            return rows;
+        }
+
+        /// <summary>
+        /// Extracts text content from an ODT (OpenDocument Text) file.
+        /// </summary>
+        private string ExtractTextFromOdt(MemoryStream stream)
+        {
+            stream.Position = 0;
+            var textBuilder = new StringBuilder();
+            long totalExtractedSize = 0;
+
+            using (var archive = new ICSharpCode.SharpZipLib.Zip.ZipInputStream(stream))
+            {
+                ZipEntry entry;
+                while ((entry = archive.GetNextEntry()) != null)
+                {
+                    // Security: Check entry size to prevent decompression bombs
+                    if (entry.Size > MaxUncompressedSize)
+                    {
+                        throw new InvalidOperationException($"Entry '{entry.Name}' exceeds maximum allowed size");
+                    }
+
+                    // Security: Track cumulative size to prevent decompression bombs
+                    totalExtractedSize += entry.Size;
+                    if (totalExtractedSize > MaxTotalUncompressedSize)
+                    {
+                        throw new InvalidOperationException("Total uncompressed size exceeds maximum allowed");
+                    }
+
+                    if (entry.Name == "content.xml")
+                    {
+                        using var ms = new MemoryStream();
+                        archive.CopyTo(ms);
+                        ms.Position = 0;
+
+                        var xdoc = XDocument.Load(ms);
+
+                        // Find the office:text element and extract text
+                        var textElements = xdoc.Descendants()
+                            .Where(d => d.Name.LocalName == "p" || d.Name.LocalName == "h");
+
+                        foreach (var element in textElements)
+                        {
+                            var text = element.Value;
+                            if (!string.IsNullOrWhiteSpace(text))
+                            {
+                                // Check if it's a heading
+                                if (element.Name.LocalName == "h")
+                                {
+                                    textBuilder.AppendLine();
+                                    textBuilder.AppendLine(text.Trim());
+                                    textBuilder.AppendLine(new string('-', text.Trim().Length));
+                                }
+                                else
+                                {
+                                    textBuilder.AppendLine(text.Trim());
+                                }
+                            }
+                        }
+
+                        break;
+                    }
+                }
+            }
+
+            return textBuilder.ToString().Trim();
         }
 
         #endregion

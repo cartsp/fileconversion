@@ -10,6 +10,7 @@ using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Formats.Tiff;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using ICSharpCode.SharpZipLib.Zip;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -58,7 +59,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(125, result.Count);
+            Assert.Equal(130, result.Count);
         }
 
         [Fact]
@@ -3211,5 +3212,283 @@ namespace FileConvert.UnitTests
         }
 
         #endregion YAML to XML Conversion Tests
+
+        #region RTF Conversion Tests
+
+        [Fact]
+        public async Task TestConvertingRtfToTxt()
+        {
+            // Arrange - Create a simple RTF document
+            var rtfContent = @"{\rtf1\ansi\deff0{\fonttbl{\f0 Arial;}}{\colortbl;\red0\green0\blue0;}\viewkind4\uc1\pard\f0\fs24 Hello World\par This is a test.\par }";
+            var rtfStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(rtfContent));
+
+            var availableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.rtf)
+                                        .ThatConvertTo(FileExtension.txt)
+                                        .FirstOrDefault();
+
+            // Act
+            var result = await availableConvertor.Convert(rtfStream);
+
+            // Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var textContent = await reader.ReadToEndAsync();
+            Assert.Contains("Hello World", textContent);
+            Assert.Contains("This is a test", textContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingRtfToHtml()
+        {
+            // Arrange - Create a simple RTF document with formatting
+            var rtfContent = @"{\rtf1\ansi\deff0{\fonttbl{\f0 Arial;}}\viewkind4\uc1\pard\f0\fs24\b Bold text\b0 and \i italic\i0 text\par }";
+            var rtfStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(rtfContent));
+
+            var availableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.rtf)
+                                        .ThatConvertTo(FileExtension.html)
+                                        .FirstOrDefault();
+
+            // Act
+            var result = await availableConvertor.Convert(rtfStream);
+
+            // Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var htmlContent = await reader.ReadToEndAsync();
+            Assert.Contains("<!DOCTYPE html>", htmlContent);
+            Assert.Contains("<html>", htmlContent);
+            Assert.Contains("<strong>", htmlContent);
+            Assert.Contains("<em>", htmlContent);
+        }
+
+        [Theory]
+        [InlineData(".txt")]
+        [InlineData(".html")]
+        public void TestAvailableConversionsForRtf(string conversionAvailable)
+        {
+            // Arrange
+            var documentName = "testdoc.rtf";
+
+            // Act
+            var result = conversionService.GetConvertorsForFile(documentName);
+
+            // Assert
+            Assert.True(result.Count != 0);
+            Assert.Equal(2, result.Count);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        [Fact]
+        public async Task TestConvertingInvalidRtfToTxtThrowsException()
+        {
+            // Arrange - Create invalid RTF content (missing header)
+            var invalidRtf = "This is not valid RTF";
+            var rtfStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(invalidRtf));
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await conversionService.ConvertRtfToTxt(rtfStream));
+        }
+
+        #endregion RTF Conversion Tests
+
+        #region OpenDocument Conversion Tests
+
+        [Fact]
+        public async Task TestConvertingOdsToCsv()
+        {
+            // Arrange - Create a minimal ODS file (which is a ZIP with content.xml)
+            var odsStream = CreateMinimalOdsStream();
+
+            var availableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.ods)
+                                        .ThatConvertTo(FileExtension.csv)
+                                        .FirstOrDefault();
+
+            // Act
+            var result = await availableConvertor.Convert(odsStream);
+
+            // Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var csvContent = await reader.ReadToEndAsync();
+            Assert.Contains("Name", csvContent);
+            Assert.Contains("Age", csvContent);
+        }
+
+        [Fact]
+        public async Task TestConvertingOdpToPdf()
+        {
+            // Arrange - Create a minimal ODP file
+            var odpStream = CreateMinimalOdpStream();
+
+            var availableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.odp)
+                                        .ThatConvertTo(FileExtension.pdf)
+                                        .FirstOrDefault();
+
+            // Act
+            var result = await availableConvertor.Convert(odpStream);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var header = reader.ReadLine();
+            Assert.StartsWith("%PDF", header);
+        }
+
+        [Fact]
+        public async Task TestConvertingOdtToPdf()
+        {
+            // Arrange - Create a minimal ODT file
+            var odtStream = CreateMinimalOdtStream();
+
+            var availableConvertor = conversionService.GetAllAvailableConvertors()
+                                        .ThatConvertFrom(FileExtension.odt)
+                                        .ThatConvertTo(FileExtension.pdf)
+                                        .FirstOrDefault();
+
+            // Act
+            var result = await availableConvertor.Convert(odtStream);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var header = reader.ReadLine();
+            Assert.StartsWith("%PDF", header);
+        }
+
+        [Theory]
+        [InlineData(".ods", ".csv")]
+        [InlineData(".odp", ".pdf")]
+        [InlineData(".odt", ".pdf")]
+        public void TestAvailableConversionsForOpenDocument(string inputExtension, string expectedOutput)
+        {
+            // Arrange
+            var documentName = $"testdoc{inputExtension}";
+
+            // Act
+            var result = conversionService.GetConvertorsForFile(documentName);
+
+            // Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == expectedOutput);
+        }
+
+        private static MemoryStream CreateMinimalOdsStream()
+        {
+            var contentXml = @"<?xml version=""1.0"" encoding=""UTF-8""?>
+<office:document-content xmlns:office=""urn:oasis:names:tc:opendocument:xmlns:office:1.0""
+                         xmlns:table=""urn:oasis:names:tc:opendocument:xmlns:table:1.0""
+                         xmlns:text=""urn:oasis:names:tc:opendocument:xmlns:text:1.0"">
+  <office:body>
+    <office:spreadsheet>
+      <table:table>
+        <table:table-row>
+          <table:table-cell><text:p>Name</text:p></table:table-cell>
+          <table:table-cell><text:p>Age</text:p></table:table-cell>
+        </table:table-row>
+        <table:table-row>
+          <table:table-cell><text:p>Alice</text:p></table:table-cell>
+          <table:table-cell><text:p>30</text:p></table:table-cell>
+        </table:table-row>
+        <table:table-row>
+          <table:table-cell><text:p>Bob</text:p></table:table-cell>
+          <table:table-cell><text:p>25</text:p></table:table-cell>
+        </table:table-row>
+      </table:table>
+    </office:spreadsheet>
+  </office:body>
+</office:document-content>";
+
+            return CreateOpenDocumentArchive(contentXml, "content.xml");
+        }
+
+        private static MemoryStream CreateMinimalOdpStream()
+        {
+            var contentXml = @"<?xml version=""1.0"" encoding=""UTF-8""?>
+<office:document-content xmlns:office=""urn:oasis:names:tc:opendocument:xmlns:office:1.0""
+                         xmlns:draw=""urn:oasis:names:tc:opendocument:xmlns:drawing:1.0""
+                         xmlns:text=""urn:oasis:names:tc:opendocument:xmlns:text:1.0"">
+  <office:body>
+    <office:presentation>
+      <draw:page draw:name=""Slide1"">
+        <draw:frame>
+          <draw:text-box>
+            <text:p>Hello World</text:p>
+            <text:p>This is a presentation</text:p>
+          </draw:text-box>
+        </draw:frame>
+      </draw:page>
+      <draw:page draw:name=""Slide2"">
+        <draw:frame>
+          <draw:text-box>
+            <text:p>Second Slide</text:p>
+          </draw:text-box>
+        </draw:frame>
+      </draw:page>
+    </office:presentation>
+  </office:body>
+</office:document-content>";
+
+            return CreateOpenDocumentArchive(contentXml, "content.xml");
+        }
+
+        private static MemoryStream CreateMinimalOdtStream()
+        {
+            var contentXml = @"<?xml version=""1.0"" encoding=""UTF-8""?>
+<office:document-content xmlns:office=""urn:oasis:names:tc:opendocument:xmlns:office:1.0""
+                         xmlns:text=""urn:oasis:names:tc:opendocument:xmlns:text:1.0"">
+  <office:body>
+    <office:text>
+      <text:h>Document Title</text:h>
+      <text:p>This is the first paragraph of the document.</text:p>
+      <text:p>This is the second paragraph with more content.</text:p>
+    </office:text>
+  </office:body>
+</office:document-content>";
+
+            return CreateOpenDocumentArchive(contentXml, "content.xml");
+        }
+
+        private static MemoryStream CreateOpenDocumentArchive(string contentXml, string entryName)
+        {
+            var outputStream = new MemoryStream();
+
+            using (var archive = new ICSharpCode.SharpZipLib.Zip.ZipOutputStream(outputStream))
+            {
+                archive.IsStreamOwner = false;
+
+                // Add mimetype entry (required for OpenDocument)
+                var mimetypeEntry = new ICSharpCode.SharpZipLib.Zip.ZipEntry("mimetype");
+                archive.PutNextEntry(mimetypeEntry);
+                var mimetypeBytes = System.Text.Encoding.UTF8.GetBytes("application/vnd.oasis.opendocument.spreadsheet");
+                archive.Write(mimetypeBytes, 0, mimetypeBytes.Length);
+                archive.CloseEntry();
+
+                // Add content.xml
+                var contentEntry = new ICSharpCode.SharpZipLib.Zip.ZipEntry(entryName);
+                archive.PutNextEntry(contentEntry);
+                var contentBytes = System.Text.Encoding.UTF8.GetBytes(contentXml);
+                archive.Write(contentBytes, 0, contentBytes.Length);
+                archive.CloseEntry();
+
+                archive.Finish();
+            }
+
+            outputStream.Position = 0;
+            return outputStream;
+        }
+
+        #endregion OpenDocument Conversion Tests
     }
 }
