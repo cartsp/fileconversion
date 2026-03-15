@@ -3283,23 +3283,22 @@ li { margin: 4px 0; }";
             }
 
             using var pdfDoc = document;
-            List<UglyToad.PdfPig.Content.Page> pages;
+
+            // Only get the first page - avoid materializing all pages for efficiency
+            UglyToad.PdfPig.Content.Page firstPage;
             try
             {
-                pages = pdfDoc.GetPages().ToList();
+                firstPage = pdfDoc.GetPages().FirstOrDefault();
             }
             catch (Exception ex)
             {
                 throw new InvalidOperationException($"Failed to read PDF pages: {ex.Message}", ex);
             }
 
-            if (pages.Count == 0)
+            if (firstPage == null)
             {
                 throw new ArgumentException("PDF document contains no pages");
             }
-
-            // Render first page
-            var firstPage = pages[0];
             var pageText = firstPage.Text;
 
             if (string.IsNullOrWhiteSpace(pageText))
