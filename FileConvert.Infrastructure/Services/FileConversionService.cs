@@ -15,6 +15,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using FileConvert.Core.ValueObjects;
 using System.Globalization;
 using System.Text.Json;
+using System.Xml;
 using System.Xml.Linq;
 using Markdig;
 using YamlDotNet.Serialization;
@@ -49,6 +50,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using DocumentFormat.OpenXml;
 using WordDocument = DocumentFormat.OpenXml.Wordprocessing.Document;
+using RtfPipe;
 
 namespace FileConvert.Infrastructure
 {
@@ -129,6 +131,10 @@ namespace FileConvert.Infrastructure
 
         static FileConversionService()
         {
+            // Register encoding provider for Windows-1252 and other legacy encodings
+            // Required by RtfPipe library for RTF parsing
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
             // EPPlus 5+ requires license context to be set
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             // QuestPDF requires license - Community Edition is free for non-commercial use
@@ -349,6 +355,14 @@ namespace FileConvert.Infrastructure
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.dng, FileExtension.jpeg, ConvertDngToJpg));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.dng, FileExtension.png, ConvertDngToPng));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.dng, FileExtension.webp, ConvertDngToWebp));
+
+            // RTF conversions
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.rtf, FileExtension.html, ConvertRtfToHtml));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.rtf, FileExtension.txt, ConvertRtfToTxt));
+
+            // OpenDocument conversions
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.odt, FileExtension.docx, ConvertOdtToDocx));
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.ods, FileExtension.xlsx, ConvertOdsToXlsx));
 
             Convertors = ConvertorListBuilder.ToImmutable();
         }
@@ -3569,6 +3583,408 @@ li { margin: 4px 0; }";
 
             outputStream.Position = 0;
             return outputStream;
+        }
+
+        #endregion
+
+        #region RTF and OpenDocument Conversions
+
+        /// <summary>
+        /// Converts RTF (Rich Text Format) to HTML.
+        /// Uses RtfPipe library to parse RTF and generate semantic HTML.
+        /// </summary>
+        /// <param name="rtfStream">The RTF stream to convert</param>
+        /// <returns>An HTML stream containing the document content</returns>
+        public async Task<MemoryStream> ConvertRtfToHtml(MemoryStream rtfStream)
+        {
+            // Validate input size to prevent memory exhaustion
+            if (rtfStream.Length > MaxUncompressedSize)
+            {
+                throw new ArgumentException($"RTF file exceeds maximum size limit of {MaxUncompressedSize} bytes");
+            }
+
+            rtfStream.Position = 0;
+
+            using var reader = new StreamReader(rtfStream, Encoding.UTF8, leaveOpen: true);
+            var rtfContent = await reader.ReadToEndAsync();
+
+            if (string.IsNullOrWhiteSpace(rtfContent))
+            {
+                throw new ArgumentException("RTF content is empty");
+            }
+
+            // Convert RTF to HTML using RtfPipe
+            var htmlContent = Rtf.ToHtml(rtfContent);
+
+            // Wrap in a proper HTML document structure if not already wrapped
+            var fullHtml = new StringBuilder();
+            if (!htmlContent.Contains("<!DOCTYPE", StringComparison.OrdinalIgnoreCase))
+            {
+                fullHtml.AppendLine("<!DOCTYPE html>");
+                fullHtml.AppendLine("<html>");
+                fullHtml.AppendLine("<head>");
+                fullHtml.AppendLine("<meta charset=\"UTF-8\">");
+                fullHtml.AppendLine("<style>");
+                fullHtml.AppendLine("body { font-family: Arial, sans-serif; margin: 20px; }");
+                fullHtml.AppendLine("</style>");
+                fullHtml.AppendLine("</head>");
+                fullHtml.AppendLine("<body>");
+            }
+
+            fullHtml.Append(htmlContent);
+
+            if (!htmlContent.Contains("<!DOCTYPE", StringComparison.OrdinalIgnoreCase))
+            {
+                fullHtml.AppendLine();
+                fullHtml.AppendLine("</body>");
+                fullHtml.AppendLine("</html>");
+            }
+
+            return await WriteStringToStreamAsync(fullHtml.ToString());
+        }
+
+        /// <summary>
+        /// Converts RTF (Rich Text Format) to plain text.
+        /// Extracts text content from RTF, removing all formatting.
+        /// </summary>
+        /// <param name="rtfStream">The RTF stream to convert</param>
+        /// <returns>A plain text stream containing the document content</returns>
+        public async Task<MemoryStream> ConvertRtfToTxt(MemoryStream rtfStream)
+        {
+            // Validate input size to prevent memory exhaustion
+            if (rtfStream.Length > MaxUncompressedSize)
+            {
+                throw new ArgumentException($"RTF file exceeds maximum size limit of {MaxUncompressedSize} bytes");
+            }
+
+            rtfStream.Position = 0;
+
+            using var reader = new StreamReader(rtfStream, Encoding.UTF8, leaveOpen: true);
+            var rtfContent = await reader.ReadToEndAsync();
+
+            if (string.IsNullOrWhiteSpace(rtfContent))
+            {
+                throw new ArgumentException("RTF content is empty");
+            }
+
+            // Convert RTF to plain text using RtfPipe
+            // RtfPipe doesn't have a direct ToText method, so we convert to HTML and strip tags
+            var htmlContent = Rtf.ToHtml(rtfContent);
+            var plainText = StripHtmlTags(htmlContent);
+
+            return await WriteStringToStreamAsync(plainText);
+        }
+
+        /// <summary>
+        /// Strips HTML tags from content to get plain text.
+        /// </summary>
+        private static string StripHtmlTags(string html)
+        {
+            if (string.IsNullOrEmpty(html))
+                return string.Empty;
+
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+
+            // Get the inner text which automatically strips tags
+            var text = doc.DocumentNode.InnerText;
+
+            // Clean up whitespace
+            text = MultipleBlankLinesRegex.Replace(text, "\n\n");
+            text = HorizontalWhitespaceRegex.Replace(text, " ");
+            text = text.Replace("&nbsp;", " ")
+                       .Replace("&amp;", "&")
+                       .Replace("&lt;", "<")
+                       .Replace("&gt;", ">")
+                       .Replace("&quot;", "\"");
+
+            return text.Trim();
+        }
+
+        /// <summary>
+        /// Converts ODT (OpenDocument Text) to DOCX format.
+        /// Parses the ODT ZIP structure and extracts content to create a DOCX document.
+        /// </summary>
+        /// <param name="odtStream">The ODT stream to convert</param>
+        /// <returns>A DOCX stream containing the document content</returns>
+        public async Task<MemoryStream> ConvertOdtToDocx(MemoryStream odtStream)
+        {
+            // Validate input size to prevent memory exhaustion
+            if (odtStream.Length > MaxUncompressedSize)
+            {
+                throw new ArgumentException($"ODT file exceeds maximum size limit of {MaxUncompressedSize} bytes");
+            }
+
+            odtStream.Position = 0;
+
+            // Extract text content from ODT
+            var textContent = await ExtractTextFromOdtAsync(odtStream);
+
+            if (string.IsNullOrWhiteSpace(textContent))
+            {
+                throw new ArgumentException("ODT content is empty or could not be extracted");
+            }
+
+            // Create DOCX using DocumentFormat.OpenXml
+            var outputStream = new MemoryStream();
+
+            using (var wordDoc = WordprocessingDocument.Create(outputStream, WordprocessingDocumentType.Document))
+            {
+                var mainPart = wordDoc.AddMainDocumentPart();
+                mainPart.Document = new WordDocument();
+                var body = mainPart.Document.AppendChild(new Body());
+
+                // Split content into paragraphs and add them
+                var paragraphs = textContent.Split('\n');
+                foreach (var paraText in paragraphs)
+                {
+                    if (!string.IsNullOrWhiteSpace(paraText))
+                    {
+                        var para = body.AppendChild(new Paragraph());
+                        para.AppendChild(new Run(new Text(paraText.Trim())));
+                    }
+                    else
+                    {
+                        // Add empty paragraph for blank lines
+                        body.AppendChild(new Paragraph());
+                    }
+                }
+
+                mainPart.Document.Save();
+            }
+
+            outputStream.Position = 0;
+            return outputStream;
+        }
+
+        /// <summary>
+        /// Extracts plain text content from an ODT file.
+        /// ODT files are ZIP archives containing XML files.
+        /// Includes security measures against ZIP bombs and XXE attacks.
+        /// </summary>
+        private async Task<string> ExtractTextFromOdtAsync(MemoryStream odtStream)
+        {
+            var textBuilder = new StringBuilder();
+            long totalExtractedSize = 0;
+            int entryCount = 0;
+
+            odtStream.Position = 0;
+            using var zipArchive = new ZipInputStream(odtStream);
+            zipArchive.IsStreamOwner = false;
+
+            ZipEntry entry;
+            while ((entry = zipArchive.GetNextEntry()) != null)
+            {
+                // ZIP bomb protection - check entry count
+                entryCount++;
+                if (entryCount > MaxEntryCount)
+                {
+                    throw new ArgumentException($"ODT archive contains too many entries (max {MaxEntryCount})");
+                }
+
+                // ZIP bomb protection - check uncompressed size
+                if (entry.Size > MaxUncompressedSize)
+                {
+                    throw new ArgumentException($"ODT archive entry '{entry.Name}' exceeds maximum size limit");
+                }
+
+                // Use EndsWith to handle any path variations
+                if (!entry.IsDirectory && entry.Name.EndsWith("content.xml", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Read directly from ZipInputStream after GetNextEntry (size already validated above)
+                    using var reader = new StreamReader(zipArchive, Encoding.UTF8, false, -1, true);
+                    var contentXml = await reader.ReadToEndAsync();
+
+                    totalExtractedSize += contentXml.Length;
+                    if (totalExtractedSize > MaxTotalUncompressedSize)
+                    {
+                        throw new ArgumentException("ODT archive total uncompressed size exceeds limit");
+                    }
+
+                    // Parse XML securely with XXE protection
+                    var doc = ParseXmlSecurely(contentXml);
+
+                    // Define the ODF text namespace
+                    XNamespace textNs = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
+
+                    // Find all text paragraphs (text:p and text:h elements)
+                    var textElements = doc.Descendants()
+                        .Where(e => e.Name == textNs + "p" || e.Name == textNs + "h");
+
+                    foreach (var element in textElements)
+                    {
+                        // Check text accumulation limit
+                        if (textBuilder.Length >= MaxTextContentLength)
+                        {
+                            break;
+                        }
+
+                        var text = element.Value;
+                        if (!string.IsNullOrWhiteSpace(text))
+                        {
+                            textBuilder.AppendLine(text);
+                        }
+                    }
+
+                    break;
+                }
+            }
+
+            return textBuilder.ToString().Trim();
+        }
+
+        /// <summary>
+        /// Parses XML content securely with XXE protection.
+        /// </summary>
+        private static XDocument ParseXmlSecurely(string xmlContent)
+        {
+            var settings = new XmlReaderSettings
+            {
+                DtdProcessing = DtdProcessing.Prohibit,
+                XmlResolver = null,
+                MaxCharactersFromEntities = 1024,
+                MaxCharactersInDocument = MaxTextContentLength * 2
+            };
+
+            using var stringReader = new StringReader(xmlContent);
+            using var xmlReader = XmlReader.Create(stringReader, settings);
+            return XDocument.Load(xmlReader);
+        }
+
+        /// <summary>
+        /// Converts ODS (OpenDocument Spreadsheet) to XLSX format.
+        /// Parses the ODS ZIP structure and extracts cell data to create an XLSX spreadsheet.
+        /// </summary>
+        /// <param name="odsStream">The ODS stream to convert</param>
+        /// <returns>An XLSX stream containing the spreadsheet data</returns>
+        public async Task<MemoryStream> ConvertOdsToXlsx(MemoryStream odsStream)
+        {
+            // Validate input size to prevent memory exhaustion
+            if (odsStream.Length > MaxUncompressedSize)
+            {
+                throw new ArgumentException($"ODS file exceeds maximum size limit of {MaxUncompressedSize} bytes");
+            }
+
+            odsStream.Position = 0;
+
+            // Extract table data from ODS
+            var tableData = await ExtractDataFromOdsAsync(odsStream);
+
+            // Create XLSX using EPPlus
+            var outputStream = new MemoryStream();
+
+            using (var package = new ExcelPackage(outputStream))
+            {
+                var worksheet = package.Workbook.Worksheets.Add("Sheet1");
+
+                for (int row = 0; row < tableData.Count; row++)
+                {
+                    for (int col = 0; col < tableData[row].Count; col++)
+                    {
+                        worksheet.Cells[row + 1, col + 1].Value = tableData[row][col];
+                    }
+                }
+
+                package.Save();
+            }
+
+            outputStream.Position = 0;
+            return outputStream;
+        }
+
+        /// <summary>
+        /// Extracts table data from an ODS file.
+        /// ODS files are ZIP archives containing XML files.
+        /// Includes security measures against ZIP bombs and XXE attacks.
+        /// </summary>
+        private async Task<List<List<string>>> ExtractDataFromOdsAsync(MemoryStream odsStream)
+        {
+            var tableData = new List<List<string>>();
+            long totalExtractedSize = 0;
+            int entryCount = 0;
+
+            odsStream.Position = 0;
+            using var zipArchive = new ZipInputStream(odsStream);
+            zipArchive.IsStreamOwner = false;
+
+            ZipEntry entry;
+            while ((entry = zipArchive.GetNextEntry()) != null)
+            {
+                // ZIP bomb protection - check entry count
+                entryCount++;
+                if (entryCount > MaxEntryCount)
+                {
+                    throw new ArgumentException($"ODS archive contains too many entries (max {MaxEntryCount})");
+                }
+
+                // ZIP bomb protection - check uncompressed size
+                if (entry.Size > MaxUncompressedSize)
+                {
+                    throw new ArgumentException($"ODS archive entry '{entry.Name}' exceeds maximum size limit");
+                }
+
+                // Use EndsWith to handle any path variations
+                if (!entry.IsDirectory && entry.Name.EndsWith("content.xml", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Read directly from ZipInputStream after GetNextEntry (size already validated above)
+                    using var reader = new StreamReader(zipArchive, Encoding.UTF8, false, -1, true);
+                    var contentXml = await reader.ReadToEndAsync();
+
+                    totalExtractedSize += contentXml.Length;
+                    if (totalExtractedSize > MaxTotalUncompressedSize)
+                    {
+                        throw new ArgumentException("ODS archive total uncompressed size exceeds limit");
+                    }
+
+                    // Parse XML securely with XXE protection
+                    var doc = ParseXmlSecurely(contentXml);
+
+                    // Define the ODF namespaces
+                    XNamespace tableNs = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
+                    XNamespace textNs = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
+
+                    // Find table rows (table:table-row elements)
+                    var rows = doc.Descendants(tableNs + "table-row");
+
+                    foreach (var row in rows)
+                    {
+                        // Check row count limit to prevent memory exhaustion
+                        if (tableData.Count >= MaxEntryCount)
+                        {
+                            break;
+                        }
+
+                        var rowData = new List<string>();
+
+                        // Find cells (table:table-cell elements)
+                        var cells = row.Elements(tableNs + "table-cell");
+
+                        foreach (var cell in cells)
+                        {
+                            // Get cell value from child text:p elements
+                            var textElement = cell.Element(textNs + "p");
+                            var cellValue = textElement?.Value ?? string.Empty;
+
+                            rowData.Add(cellValue);
+                        }
+
+                        if (rowData.Count > 0)
+                        {
+                            tableData.Add(rowData);
+                        }
+                    }
+
+                    break;
+                }
+            }
+
+            // If no data was found, add at least one empty row
+            if (tableData.Count == 0)
+            {
+                tableData.Add(new List<string> { string.Empty });
+            }
+
+            return tableData;
         }
 
         #endregion

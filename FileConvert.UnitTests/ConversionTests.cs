@@ -58,7 +58,7 @@ namespace FileConvert.UnitTests
             //Assert
             Assert.NotNull(result);
             Assert.True(result.Count != 0);
-            Assert.Equal(131, result.Count);
+            Assert.Equal(135, result.Count);
         }
 
         [Fact]
@@ -3377,5 +3377,260 @@ namespace FileConvert.UnitTests
         }
 
         #endregion YAML to XML Conversion Tests
+
+        #region RTF Conversion Tests
+
+        [Fact]
+        public async Task TestConvertingRtfToHtml()
+        {
+            // Arrange
+            var rtfStream = ConvertFileToMemoryStream("Documents/test.rtf");
+
+            var availableConvertor = conversionService.GetAllAvailableConvertors()
+                .ThatConvertFrom(FileExtension.rtf)
+                .ThatConvertTo(FileExtension.html)
+                .FirstOrDefault();
+
+            // Act
+            var result = await availableConvertor.Convert(rtfStream);
+
+            // Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var content = await reader.ReadToEndAsync();
+            Assert.Contains("<!DOCTYPE html>", content);
+            Assert.Contains("test RTF document", content);
+        }
+
+        [Fact]
+        public async Task TestConvertingRtfToHtmlReturnsStream()
+        {
+            // Arrange
+            var rtfStream = ConvertFileToMemoryStream("Documents/test.rtf");
+
+            // Act
+            var result = await conversionService.ConvertRtfToHtml(rtfStream);
+
+            // Assert
+            Assert.IsType<MemoryStream>(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var content = await reader.ReadToEndAsync();
+            Assert.Contains("test RTF document", content);
+        }
+
+        [Fact]
+        public async Task TestConvertingRtfToTxt()
+        {
+            // Arrange
+            var rtfStream = ConvertFileToMemoryStream("Documents/test.rtf");
+
+            var availableConvertor = conversionService.GetAllAvailableConvertors()
+                .ThatConvertFrom(FileExtension.rtf)
+                .ThatConvertTo(FileExtension.txt)
+                .FirstOrDefault();
+
+            // Act
+            var result = await availableConvertor.Convert(rtfStream);
+
+            // Assert
+            Assert.NotNull(result);
+            result.Position = 0;
+            using var reader = new StreamReader(result, leaveOpen: true);
+            var content = await reader.ReadToEndAsync();
+            // Should contain the text without RTF markup
+            Assert.Contains("test RTF document", content);
+            // Should not contain RTF control words
+            Assert.DoesNotContain("\\rtf1", content);
+        }
+
+        [Fact]
+        public async Task TestConvertingRtfToTxtReturnsStream()
+        {
+            // Arrange
+            var rtfStream = ConvertFileToMemoryStream("Documents/test.rtf");
+
+            // Act
+            var result = await conversionService.ConvertRtfToTxt(rtfStream);
+
+            // Assert
+            Assert.IsType<MemoryStream>(result);
+        }
+
+        [Theory]
+        [InlineData(".html")]
+        [InlineData(".txt")]
+        public void TestAvailableConversionsForRtf(string conversionAvailable)
+        {
+            // Arrange
+            var documentName = "testdoc.rtf";
+
+            // Act
+            var result = conversionService.GetConvertorsForFile(documentName);
+
+            // Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == conversionAvailable);
+        }
+
+        [Fact]
+        public async Task TestConvertingEmptyRtfToHtmlThrowsException()
+        {
+            // Arrange - Create empty RTF stream
+            var emptyStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(""));
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await conversionService.ConvertRtfToHtml(emptyStream));
+        }
+
+        #endregion RTF Conversion Tests
+
+        #region ODT Conversion Tests
+
+        [Fact]
+        public async Task TestConvertingOdtToDocx()
+        {
+            // Arrange
+            var odtStream = ConvertFileToMemoryStream("Documents/test.odt");
+
+            var availableConvertor = conversionService.GetAllAvailableConvertors()
+                .ThatConvertFrom(FileExtension.odt)
+                .ThatConvertTo(FileExtension.docx)
+                .FirstOrDefault();
+
+            // Act
+            var result = await availableConvertor.Convert(odtStream);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+
+            // Verify it's a valid DOCX by opening it
+            using var wordDoc = WordprocessingDocument.Open(result, false);
+            Assert.NotNull(wordDoc.MainDocumentPart);
+        }
+
+        [Fact]
+        public async Task TestConvertingOdtToDocxReturnsStream()
+        {
+            // Arrange
+            var odtStream = ConvertFileToMemoryStream("Documents/test.odt");
+
+            // Act
+            var result = await conversionService.ConvertOdtToDocx(odtStream);
+
+            // Assert
+            Assert.IsType<MemoryStream>(result);
+            Assert.True(result.Length > 0);
+        }
+
+        [Fact]
+        public async Task TestConvertingOdtToDocxPreservesContent()
+        {
+            // Arrange
+            var odtStream = ConvertFileToMemoryStream("Documents/test.odt");
+
+            // Act
+            var result = await conversionService.ConvertOdtToDocx(odtStream);
+
+            // Assert - Check that content is preserved
+            using var wordDoc = WordprocessingDocument.Open(result, false);
+            var body = wordDoc.MainDocumentPart?.Document?.Body;
+            Assert.NotNull(body);
+            var text = body.InnerText;
+            Assert.Contains("test ODT document", text);
+        }
+
+        [Fact]
+        public void TestAvailableConversionsForOdt()
+        {
+            // Arrange
+            var documentName = "testdoc.odt";
+
+            // Act
+            var result = conversionService.GetConvertorsForFile(documentName);
+
+            // Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == ".docx");
+        }
+
+        #endregion ODT Conversion Tests
+
+        #region ODS Conversion Tests
+
+        [Fact]
+        public async Task TestConvertingOdsToXlsx()
+        {
+            // Arrange
+            var odsStream = ConvertFileToMemoryStream("Documents/test.ods");
+
+            var availableConvertor = conversionService.GetAllAvailableConvertors()
+                .ThatConvertFrom(FileExtension.ods)
+                .ThatConvertTo(FileExtension.xlsx)
+                .FirstOrDefault();
+
+            // Act
+            var result = await availableConvertor.Convert(odsStream);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+
+            // Verify it's a valid XLSX by opening it
+            using var package = new ExcelPackage(result);
+            Assert.Single(package.Workbook.Worksheets);
+        }
+
+        [Fact]
+        public async Task TestConvertingOdsToXlsxReturnsStream()
+        {
+            // Arrange
+            var odsStream = ConvertFileToMemoryStream("Documents/test.ods");
+
+            // Act
+            var result = await conversionService.ConvertOdsToXlsx(odsStream);
+
+            // Assert
+            Assert.IsType<MemoryStream>(result);
+            Assert.True(result.Length > 0);
+        }
+
+        [Fact]
+        public async Task TestConvertingOdsToXlsxPreservesData()
+        {
+            // Arrange
+            var odsStream = ConvertFileToMemoryStream("Documents/test.ods");
+
+            // Act
+            var result = await conversionService.ConvertOdsToXlsx(odsStream);
+
+            // Assert - Check that data is preserved
+            using var package = new ExcelPackage(result);
+            var worksheet = package.Workbook.Worksheets[0];
+            Assert.Equal("Name", worksheet.Cells[1, 1].Value?.ToString());
+            Assert.Equal("Age", worksheet.Cells[1, 2].Value?.ToString());
+            Assert.Equal("City", worksheet.Cells[1, 3].Value?.ToString());
+            Assert.Equal("John", worksheet.Cells[2, 1].Value?.ToString());
+            Assert.Equal("30", worksheet.Cells[2, 2].Value?.ToString());
+        }
+
+        [Fact]
+        public void TestAvailableConversionsForOds()
+        {
+            // Arrange
+            var documentName = "testdoc.ods";
+
+            // Act
+            var result = conversionService.GetConvertorsForFile(documentName);
+
+            // Assert
+            Assert.True(result.Count != 0);
+            Assert.Contains(result, a => a.ConvertedExtension.Value == ".xlsx");
+        }
+
+        #endregion ODS Conversion Tests
     }
 }
