@@ -49,6 +49,7 @@ namespace FileConvert.Core.ValueObjects
         public static FileExtension avif { get { return new FileExtension(".avif"); } }
         public static FileExtension jxl { get { return new FileExtension(".jxl"); } }
         public static FileExtension dng { get { return new FileExtension(".dng"); } }
+        public static FileExtension pptx { get { return new FileExtension(".pptx"); } }
 
         public static implicit operator string(FileExtension value)
         {

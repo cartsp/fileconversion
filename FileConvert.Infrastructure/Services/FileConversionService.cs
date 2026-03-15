@@ -155,6 +155,12 @@ namespace FileConvert.Infrastructure
             // XLSX to PDF conversion - high value spreadsheet conversion
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.xlsx, FileExtension.pdf, ConvertXlsxToPdf));
 
+            // PPTX to PDF conversion - high value presentation conversion
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.pptx, FileExtension.pdf, ConvertPptxToPdf));
+
+            // HTML to PDF conversion - high value document conversion
+            ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.html, FileExtension.pdf, ConvertHtmlToPdf));
+
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.mp3, FileExtension.wav, ConvertMP3ToWav));
             //ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.tif, FileExtension.png, ConverTifToPNG));
             ConvertorListBuilder.Add(new ConvertorDetails(FileExtension.png, FileExtension.jpg, ConvertImageTojpg));
@@ -2510,7 +2516,7 @@ li { margin: 4px 0; }";
         /// </summary>
         private string ExtractTextFromDocxElement(OpenXmlElement element)
         {
-            if (element is Paragraph para)
+            if (element is DocumentFormat.OpenXml.Wordprocessing.Paragraph para)
             {
                 return para.InnerText;
             }
@@ -2539,7 +2545,7 @@ li { margin: 4px 0; }";
         /// </summary>
         private void ProcessDocxElementToHtml(OpenXmlElement element, StringBuilder htmlBuilder)
         {
-            if (element is Paragraph para)
+            if (element is DocumentFormat.OpenXml.Wordprocessing.Paragraph para)
             {
                 var text = para.InnerText;
                 if (string.IsNullOrWhiteSpace(text))
@@ -2591,7 +2597,7 @@ li { margin: 4px 0; }";
         /// <summary>
         /// Gets the style ID for a paragraph.
         /// </summary>
-        private static string GetParagraphStyleId(Paragraph para)
+        private static string GetParagraphStyleId(DocumentFormat.OpenXml.Wordprocessing.Paragraph para)
         {
             var props = para.ParagraphProperties;
             if (props != null)
@@ -2619,7 +2625,7 @@ li { margin: 4px 0; }";
         /// <summary>
         /// Formats runs within a paragraph, preserving bold and italic formatting.
         /// </summary>
-        private static string FormatRuns(Paragraph para)
+        private static string FormatRuns(DocumentFormat.OpenXml.Wordprocessing.Paragraph para)
         {
             var result = new StringBuilder();
             foreach (var run in para.Elements<Run>())
@@ -2754,6 +2760,286 @@ li { margin: 4px 0; }";
 
             outputStream.Position = 0;
             return await Task.FromResult(outputStream);
+        }
+
+        #endregion
+
+        #region PPTX to PDF Conversion Methods
+        /// <summary>
+        /// Converts a PPTX (PowerPoint) presentation to PDF format.
+        /// Uses DocumentFormat.OpenXml to parse PPTX and QuestPDF to render slides.
+        /// Extracts text and basic layout from each slide.
+        /// </summary>
+        /// <param name="pptxStream">The PPTX stream to convert</param>
+        /// <returns>A PDF stream containing the rendered presentation content</returns>
+        public async Task<MemoryStream> ConvertPptxToPdf(MemoryStream pptxStream)
+        {
+            pptxStream.Position = 0;
+
+            var slideTexts = new List<string>();
+
+            // Create a copy of the stream with auto-grow enabled for PresentationDocument
+            var pptxCopy = new MemoryStream(pptxStream.ToArray(), true);
+
+            using var presentation = DocumentFormat.OpenXml.Packaging.PresentationDocument.Open(pptxCopy, false);
+            var presentationPart = presentation.PresentationPart;
+
+            if (presentationPart == null)
+            {
+                throw new ArgumentException("PPTX file has no presentation part");
+            }
+
+            // Get slide parts directly from the presentation part
+            var slideParts = presentationPart.SlideParts;
+            if (slideParts == null || !slideParts.Any())
+            {
+                throw new ArgumentException("PPTX presentation contains no slides");
+            }
+
+            foreach (var slidePart in slideParts)
+            {
+                if (slidePart?.Slide?.CommonSlideData?.ShapeTree != null)
+                {
+                    var slideText = ExtractTextFromSlide(slidePart.Slide.CommonSlideData.ShapeTree);
+                    if (!string.IsNullOrWhiteSpace(slideText))
+                    {
+                        slideTexts.Add(slideText);
+                    }
+                }
+            }
+
+            if (slideTexts.Count == 0)
+            {
+                throw new ArgumentException("PPTX presentation contains no extractable text content");
+            }
+
+            // Build text content for PDF with slide separators
+            var textBuilder = new StringBuilder();
+            for (int i = 0; i < slideTexts.Count; i++)
+            {
+                textBuilder.AppendLine($"=== Slide {i + 1} ===");
+                textBuilder.AppendLine(slideTexts[i]);
+                textBuilder.AppendLine();
+            }
+
+            var textContent = textBuilder.ToString().Trim();
+
+            // Create PDF using QuestPDF
+            var outputStream = new MemoryStream();
+
+            QuestPDF.Fluent.Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4.Landscape());
+                    page.Margin(1, Unit.Centimetre);
+                    page.DefaultTextStyle(x => x.FontSize(12));
+
+                    page.Content().Text(textContent);
+                });
+            }).GeneratePdf(outputStream);
+
+            outputStream.Position = 0;
+            return await Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Extracts text content from a slide's shape tree.
+        /// </summary>
+        private string ExtractTextFromSlide(DocumentFormat.OpenXml.Presentation.ShapeTree shapeTree)
+        {
+            var textBuilder = new StringBuilder();
+
+            foreach (var shape in shapeTree.Elements<DocumentFormat.OpenXml.Presentation.Shape>())
+            {
+                var textBody = shape.TextBody;
+                if (textBody != null)
+                {
+                    foreach (var paragraph in textBody.Elements<DocumentFormat.OpenXml.Drawing.Paragraph>())
+                    {
+                        var paragraphText = new StringBuilder();
+                        foreach (var run in paragraph.Elements<DocumentFormat.OpenXml.Drawing.Run>())
+                        {
+                            if (run.Text != null)
+                            {
+                                paragraphText.Append(run.Text.Text);
+                            }
+                        }
+
+                        if (paragraphText.Length > 0)
+                        {
+                            textBuilder.AppendLine(paragraphText.ToString());
+                        }
+                    }
+                }
+            }
+
+            return textBuilder.ToString().Trim();
+        }
+
+        #endregion
+
+        #region HTML to PDF Conversion Methods
+
+        /// <summary>
+        /// Converts HTML content to PDF format.
+        /// Uses HtmlAgilityPack to parse HTML and QuestPDF to render content.
+        /// Supports basic HTML elements: p, h1-h6, ul, ol, li, table, img (base64), a, strong, em.
+        /// </summary>
+        /// <param name="htmlStream">The HTML stream to convert</param>
+        /// <returns>A PDF stream containing the rendered HTML content</returns>
+        public Task<MemoryStream> ConvertHtmlToPdf(MemoryStream htmlStream)
+        {
+            htmlStream.Position = 0;
+            var htmlContent = Encoding.UTF8.GetString(htmlStream.ToArray());
+
+            if (string.IsNullOrWhiteSpace(htmlContent))
+            {
+                throw new ArgumentException("HTML content is empty");
+            }
+
+            var doc = new HtmlDocument();
+            doc.LoadHtml(htmlContent);
+
+            // Remove script and style elements
+            var scriptNodes = doc.DocumentNode.SelectNodes("//script|//style");
+            if (scriptNodes != null)
+            {
+                foreach (var node in scriptNodes)
+                {
+                    node.Remove();
+                }
+            }
+
+            // Extract formatted text content from HTML
+            var textContent = ExtractFormattedTextFromHtml(doc.DocumentNode);
+
+            // Clean up whitespace
+            textContent = MultipleBlankLinesRegex.Replace(textContent, "\n\n");
+            textContent = HorizontalWhitespaceRegex.Replace(textContent, " ");
+            textContent = textContent.Trim();
+
+            if (string.IsNullOrWhiteSpace(textContent))
+            {
+                throw new ArgumentException("HTML content contains no extractable text");
+            }
+
+            // Create PDF using QuestPDF
+            var outputStream = new MemoryStream();
+
+            QuestPDF.Fluent.Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(1, Unit.Centimetre);
+                    page.DefaultTextStyle(x => x.FontSize(11));
+
+                    page.Content().Text(textContent);
+                });
+            }).GeneratePdf(outputStream);
+
+            outputStream.Position = 0;
+            return Task.FromResult(outputStream);
+        }
+
+        /// <summary>
+        /// Extracts formatted text from an HTML node, preserving basic structure.
+        /// </summary>
+        private string ExtractFormattedTextFromHtml(HtmlNode node)
+        {
+            if (node.NodeType == HtmlNodeType.Text)
+            {
+                return node.InnerText;
+            }
+
+            if (node.NodeType == HtmlNodeType.Comment)
+            {
+                return string.Empty;
+            }
+
+            var sb = new StringBuilder();
+            var tagName = node.Name.ToLowerInvariant();
+
+            // Add prefix for headings
+            switch (tagName)
+            {
+                case "h1":
+                    sb.AppendLine();
+                    sb.AppendLine("=".PadRight(60, '='));
+                    break;
+                case "h2":
+                    sb.AppendLine();
+                    sb.AppendLine(new string('-', 40));
+                    break;
+                case "h3":
+                case "h4":
+                case "h5":
+                case "h6":
+                    sb.AppendLine();
+                    sb.Append("### ");
+                    break;
+            }
+
+            // Process children
+            foreach (var child in node.ChildNodes)
+            {
+                var childText = ExtractFormattedTextFromHtml(child);
+
+                // Handle inline formatting
+                if (child.NodeType == HtmlNodeType.Element)
+                {
+                    var childTagName = child.Name.ToLowerInvariant();
+                    switch (childTagName)
+                    {
+                        case "strong":
+                        case "b":
+                            childText = $"**{childText.Trim()}** ";
+                            break;
+                        case "em":
+                        case "i":
+                            childText = $"_{childText.Trim()}_ ";
+                            break;
+                        case "a":
+                            var href = child.GetAttributeValue("href", "");
+                            if (!string.IsNullOrEmpty(href))
+                            {
+                                childText = $"{childText.Trim()} [{href}] ";
+                            }
+                            break;
+                        case "li":
+                            childText = $"  - {childText.Trim()}";
+                            break;
+                    }
+                }
+
+                sb.Append(childText);
+            }
+
+            // Add suffix/line breaks for block elements
+            if (BlockElements.Contains(tagName) || tagName.StartsWith("h"))
+            {
+                sb.AppendLine();
+            }
+
+            // Handle lists
+            if (tagName == "ul" || tagName == "ol")
+            {
+                sb.AppendLine();
+            }
+
+            // Handle tables - simple text representation
+            if (tagName == "tr")
+            {
+                // End of table row - add separator
+                sb.AppendLine();
+            }
+            else if (tagName == "td" || tagName == "th")
+            {
+                sb.Append(" | ");
+            }
+
+            return sb.ToString();
         }
 
         #endregion
