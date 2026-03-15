@@ -52,7 +52,7 @@ namespace FileConvert.Infrastructure.Converters
                 EOL = "\n"
             };
 
-            var csvFile = Encoding.ASCII.GetString(csvStream.ToArray());
+            var csvFile = Encoding.UTF8.GetString(csvStream.ToArray());
 
             using (var package = new ExcelPackage())
             {
