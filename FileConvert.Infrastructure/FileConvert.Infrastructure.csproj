@@ -27,6 +27,8 @@
     <PackageReference Include="ZXing.Net" Version="0.16.9" />
     <PackageReference Include="ZXing.Net.Bindings.SkiaSharp" Version="0.16.13" />
     <PackageReference Include="VersOne.Epub" Version="3.3.3" />
+    <PackageReference Include="RtfPipe" Version="1.0.0.22" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>

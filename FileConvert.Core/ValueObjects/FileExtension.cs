@@ -50,6 +50,9 @@ namespace FileConvert.Core.ValueObjects
         public static FileExtension jxl { get { return new FileExtension(".jxl"); } }
         public static FileExtension dng { get { return new FileExtension(".dng"); } }
         public static FileExtension pptx { get { return new FileExtension(".pptx"); } }
+        public static FileExtension rtf { get { return new FileExtension(".rtf"); } }
+        public static FileExtension odt { get { return new FileExtension(".odt"); } }
+        public static FileExtension ods { get { return new FileExtension(".ods"); } }
 
         public static implicit operator string(FileExtension value)
         {
