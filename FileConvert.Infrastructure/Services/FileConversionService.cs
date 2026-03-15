@@ -3239,9 +3239,9 @@ li { margin: 4px 0; }";
         /// </summary>
         /// <param name="pdfStream">The PDF stream to convert</param>
         /// <returns>A PNG image stream containing the rendered PDF content</returns>
-        public async Task<MemoryStream> ConvertPdfToPng(MemoryStream pdfStream)
+        public Task<MemoryStream> ConvertPdfToPng(MemoryStream pdfStream)
         {
-            return await ConvertPdfToImage(pdfStream, SKEncodedImageFormat.Png, SKColors.White, 100);
+            return Task.FromResult(ConvertPdfToImage(pdfStream, SKEncodedImageFormat.Png, SKColors.White, 100));
         }
 
         /// <summary>
@@ -3251,16 +3251,16 @@ li { margin: 4px 0; }";
         /// </summary>
         /// <param name="pdfStream">The PDF stream to convert</param>
         /// <returns>A JPG image stream containing the rendered PDF content</returns>
-        public async Task<MemoryStream> ConvertPdfToJpg(MemoryStream pdfStream)
+        public Task<MemoryStream> ConvertPdfToJpg(MemoryStream pdfStream)
         {
-            return await ConvertPdfToImage(pdfStream, SKEncodedImageFormat.Jpeg, SKColors.White, 80);
+            return Task.FromResult(ConvertPdfToImage(pdfStream, SKEncodedImageFormat.Jpeg, SKColors.White, 80));
         }
 
         /// <summary>
         /// Core method for PDF to image conversion.
         /// Uses PdfPig to extract text content and SkiaSharp to render to an image.
         /// </summary>
-        private async Task<MemoryStream> ConvertPdfToImage(
+        private MemoryStream ConvertPdfToImage(
             MemoryStream pdfStream,
             SKEncodedImageFormat format,
             SKColor backgroundColor,
@@ -3375,7 +3375,7 @@ li { margin: 4px 0; }";
             }
 
             outputStream.Position = 0;
-            return await Task.FromResult(outputStream);
+            return outputStream;
         }
 
         #endregion
@@ -3388,9 +3388,9 @@ li { margin: 4px 0; }";
         /// </summary>
         /// <param name="pptxStream">The PPTX stream to convert</param>
         /// <returns>A PNG image stream containing the rendered slide content</returns>
-        public async Task<MemoryStream> ConvertPptxToPng(MemoryStream pptxStream)
+        public Task<MemoryStream> ConvertPptxToPng(MemoryStream pptxStream)
         {
-            return await ConvertPptxToImage(pptxStream, SKEncodedImageFormat.Png, SKColors.White, 100);
+            return Task.FromResult(ConvertPptxToImage(pptxStream, SKEncodedImageFormat.Png, SKColors.White, 100));
         }
 
         /// <summary>
@@ -3399,16 +3399,16 @@ li { margin: 4px 0; }";
         /// </summary>
         /// <param name="pptxStream">The PPTX stream to convert</param>
         /// <returns>A JPG image stream containing the rendered slide content</returns>
-        public async Task<MemoryStream> ConvertPptxToJpg(MemoryStream pptxStream)
+        public Task<MemoryStream> ConvertPptxToJpg(MemoryStream pptxStream)
         {
-            return await ConvertPptxToImage(pptxStream, SKEncodedImageFormat.Jpeg, SKColors.White, 80);
+            return Task.FromResult(ConvertPptxToImage(pptxStream, SKEncodedImageFormat.Jpeg, SKColors.White, 80));
         }
 
         /// <summary>
         /// Core method for PPTX to image conversion.
         /// Uses DocumentFormat.OpenXml to extract text content and SkiaSharp to render to an image.
         /// </summary>
-        private async Task<MemoryStream> ConvertPptxToImage(
+        private MemoryStream ConvertPptxToImage(
             MemoryStream pptxStream,
             SKEncodedImageFormat format,
             SKColor backgroundColor,
@@ -3568,7 +3568,7 @@ li { margin: 4px 0; }";
             }
 
             outputStream.Position = 0;
-            return await Task.FromResult(outputStream);
+            return outputStream;
         }
 
         #endregion
